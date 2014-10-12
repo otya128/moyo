@@ -14,10 +14,11 @@ enum TokenType
     Number=0b10,
     String=0b11,
     Plus=0b10000,
-    Minus=0b10001,
-    Mul=0b10010,
-    Div=0b10011,
-    Mod=0b10100,
+    OP = 0b10000,
+    Minus=OP|1,
+    Mul=OP|2,
+    Div=OP|3,
+    Mod=OP|4,
 }
 
 /+
@@ -25,6 +26,20 @@ enum TokenType
         +
        / \
        1 1
+1+2+3
+  +
+ / \
+1  +
+  / \
+ 2   3
+
+1+2+3
+    +
+   / \
+  +   3
+ / \  
+1   2
+
 2*2+1
   +
  / \

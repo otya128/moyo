@@ -54,6 +54,22 @@ class ParseException : Exception
         super(message);
     }
 }
+int rank(TokenType type)
+{
+    //テーブル化されやすくなりたい
+    switch(type - TokenType.OP)
+    {
+        case TokenType.Mul - TokenType.OP:
+        case TokenType.Div - TokenType.OP:
+        case TokenType.Mod - TokenType.OP:
+            return 5;
+        case TokenType.Plus - TokenType.OP:
+        case TokenType.Minus - TokenType.OP:
+            return 6;
+        default:
+            throw new ParseException("Invalid Operator: " ~ to!string(type));
+    }
+}
 class Parser
 {
     enum ParserStat
@@ -70,13 +86,48 @@ class Parser
         input = s;
         enc = e;
     }
+    void to_s(Tree tr)
+    {
+        if(!tr)
+        {
+            write("null");
+            stdout.flush();
+            return;
+        }
+        switch(tr.Type)
+        {
+            case NodeType.Expression:
+                write('(');
+                stdout.flush();
+                to_s((cast(Expression)tr).OP1);
+                write(')');
+                break;
+            case NodeType.BinaryOperator:
+                write('(');
+                write((cast(BinaryOperator)tr).type);
+                write(' ');
+                stdout.flush();
+                to_s((cast(BinaryOperator)tr).OP1);
+                write(' ');
+                stdout.flush();
+                to_s((cast(BinaryOperator)tr).OP2);
+                write(')');
+                break;
+            case NodeType.Constant:
+                write((cast(Constant)tr).value);
+                break;
+                
+        }
+        stdout.flush();
+    }
     public void Parse()
     {
         auto tl = Lex();
         auto exp = new Expression();
         Tree tree = expression(tl, exp);
         auto moyo = new Moyo();
-        auto ret = moyo.Eval(tree);
+        to_s(exp);
+        auto ret = moyo.Eval(exp);
         writeln(ret);
     }
     public Tree expression(TokenList tl)
@@ -96,8 +147,31 @@ class Parser
         }
         return tree;
     }
+    /+
+    []
+    exp
+    1
+    exp
+    +1
+    exp2
+    bo?+1
+    set bo1+1
+
+    1+2+3
+    []
+    1
+    +2
+    bo?+2
+    +3
+    bo?+3
+    set (bo?+2)+3
+    ret bo?+2
+    set (bo1+2)+3
+    +/
     public Tree expression(TokenList tl, Tree parent)
     {
+        return expressionLeft(tl, parent);
+        /*
         Tree op1, op2;
         Constant cons;
         Tree operator;
@@ -105,15 +179,75 @@ class Parser
         op1 = expression(tl);
         //get operator
         tl = tl.next;
-        if(!tl) throw new ParseException("Syntax Error(Operator)");
+        if(!tl) return op1;//throw new ParseException("Syntax Error(Operator)");
         if(!tl.type.isOperator())
         {
             throw new ParseException("Syntax Error(Operator)");
         }
+        auto op = tl;
         tl = tl.next;
-        bo = new BinaryOperator(op1, op2, tl.type); 
+        bo = new BinaryOperator(op1, op2, op.type); 
+        bo.OP2 = expression(tl, parent);
+        return bo;*/
+    }
+    //<-左の方
+    Tree expressionLeft(TokenList tl, Tree parent)
+    {
+        Tree op1 = expression(tl);
+        //get operator
+        tl = tl.next;
+        if(!tl) return op1;
+        Tree ret = expressionRight(tl, parent);
+        if(ret.Type == NodeType.BinaryOperator)
+        {
+            BinaryOperator bo = cast(BinaryOperator)ret;
+            bo.OP1 = op1;
+            if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
+        }
+        return ret;
+    }
+    //右の方->
+    Tree expressionRight(TokenList tl, Tree parent)
+    {
+        Tree ret;
+        
+        if(!tl.type.isOperator())
+        {
+            throw new ParseException("Syntax Error(Operator)");
+        }
+        auto op = tl;
+        tl = tl.next;
+        BinaryOperator bo = new BinaryOperator(null, null, op.type); 
         bo.OP2 = expression(tl);
-        return bo;
+        auto tk = tl.next;
+        if(tk && tk.type.isOperator())
+        {
+            if(tk.type.rank() >= op.type.rank()) 
+            {
+                BinaryOperator bo2 = cast(BinaryOperator)(expressionRight(tk, parent));
+                Constant op1 = cast(Constant)bo2.OP1,op2=cast(Constant)bo2.OP2;
+                bo2.OP1 = bo;
+                if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo2;
+            }
+            else
+            {
+                BinaryOperator bo2 = cast(BinaryOperator)(expressionRight(tk, parent));
+                Constant opu1 = cast(Constant)bo2.OP1,opu2=cast(Constant)bo2.OP2;//3
+                Constant opa1 = cast(Constant)bo.OP1,opa2=cast(Constant)bo.OP2;//2
+                bo2.OP1 = opa2;
+                auto test1 = bo.type;
+                auto test2 = bo2.type;
+                bo.OP2 = bo2;
+                //bo = bo2;
+                /*
+                bo2.OP2 = bo;
+                if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;*/
+            }
+        }
+        //else
+       //if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
+        ret = bo;
+        return ret;
     }
     public TokenList Lex()
     {
