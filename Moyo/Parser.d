@@ -120,6 +120,16 @@ class Parser
         }
         stdout.flush();
     }
+    public MObject ParseAndEval()
+    {
+        auto tl = Lex();
+        auto exp = new Expression();
+        Tree tree = expression(tl, exp);
+        auto moyo = new Moyo();
+        to_s(exp);
+        auto ret = moyo.Eval(exp);
+        return ret;
+    }
     public void Parse()
     {
         auto tl = Lex();
@@ -168,6 +178,22 @@ class Parser
     ret bo?+2
     set (bo1+2)+3
     +/
+    /+
+    2+3*4+5
+    ((2+(3*4))+5)
+          +
+         / \
+        +   5
+       / \
+      2   *
+         / \
+        3   4
+    ((3*4)+5) 2+3*4+5
+    (2+(3*4)) 2+3*4
+    ((3*4)+5) 3*4+5
+
+    (((2+3)*4)+5)25
+    +/
     public Tree expression(TokenList tl, Tree parent)
     {
         return expressionLeft(tl, parent);
@@ -203,6 +229,9 @@ class Parser
             BinaryOperator bo = cast(BinaryOperator)ret;
             bo.OP1 = op1;
             if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
+            writeln("end");
+            to_s(bo);
+            writeln("end");
         }
         return ret;
     }
@@ -222,22 +251,67 @@ class Parser
         auto tk = tl.next;
         if(tk && tk.type.isOperator())
         {
+            writef("op%s ,tk%s\n", op.type, tk.type);
             if(tk.type.rank() >= op.type.rank()) 
             {
                 BinaryOperator bo2 = cast(BinaryOperator)(expressionRight(tk, parent));
                 Constant op1 = cast(Constant)bo2.OP1,op2=cast(Constant)bo2.OP2;
                 bo2.OP1 = bo;
-                if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo2;
+               // if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo2;
+                write("Botk.type.rank() >= op.type.rank())\n");to_s(bo);
+                writeln();
+                to_s(bo2);
+                writeln();//writefln("bo:OP1 %s,OP2 %s, bo2:OP1 %s, OP2 %s", to_str(bo.OP1), to_str(bo.OP2), to_str(bo2.OP1), to_str(bo2.OP2));
             }
             else
             {
-                BinaryOperator bo2 = cast(BinaryOperator)(expressionRight(tk, parent));
+                BinaryOperator bo2 = cast(BinaryOperator)expressionLeft(tl,parent);//(expressionRight(tk, parent));
+                write("else\n");to_s(bo);
+                writeln();
+                to_s(bo2);
+                writeln();
                 Constant opu1 = cast(Constant)bo2.OP1,opu2=cast(Constant)bo2.OP2;//3
                 Constant opa1 = cast(Constant)bo.OP1,opa2=cast(Constant)bo.OP2;//2
-                bo2.OP1 = opa2;
+               /+ bo2.OP1 = opa2;
                 auto test1 = bo.type;
                 auto test2 = bo2.type;
+              ///  return bo;
+               // //bo.OP2 = bo2;
+                /+
+                opPlus ,tkMul
+                opMul ,tkPlus
+                Botk.type.rank() >= op.type.rank())
+                (Mul null 4)
+                (Plus (Mul null 4) 5)
+                else
+                (Plus null 3<-????)
+                (Mul (Plus null 3) 4)
+                end
+                (Plus 2 3)end
+                ((Plus (Mul (Plus 2 3) 4) 5))25
+                +/
+                bo2.OP1 = bo;//opu1;
+                +/
                 bo.OP2 = bo2;
+                auto opu1j = bo2.OP1,opu2j=bo2.OP2;//3
+                auto opa1m = bo.OP1,opa2m=bo.OP2;//2
+                auto bop = bo2.type, boi = bo.type;
+                write("else\n");to_s(bo);
+                writeln();
+                to_s(bo2);
+                writeln();
+                bo.OP1 = opu1j;
+                bo.OP2 = opu2j;
+                bo2.OP1 = opa1m;
+                bo2.OP2 = bo;
+                bo2.type = boi;
+                bo.type = bop;
+                write("else\n");to_s(bo);
+                writeln();
+                to_s(bo2);
+                writeln();
+                return bo2;
+                if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo2;//2;// bo=bo2;
                 //bo = bo2;
                 /*
                 bo2.OP2 = bo;
@@ -245,7 +319,7 @@ class Parser
             }
         }
         //else
-       //if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
+       if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
         ret = bo;
         return ret;
     }
