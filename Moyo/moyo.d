@@ -7,6 +7,13 @@ template GenOperator(string type, string op)
         "case TokenType." ~ type ~ " - TokenType.OP:" ~  
         "return op1" ~ op ~ "op2;";
 }
+class RuntimeException : Exception
+{
+    this(string msg)
+    {
+        super(msg);
+    }
+}
 class Moyo
 {
     public MObject Eval(Tree tree)
@@ -28,10 +35,13 @@ class Moyo
                     mixin(GenOperator!("Mul", "*"));
                     mixin(GenOperator!("Div", "/"));
                     mixin(GenOperator!("Mod", "%"));
+                    default:
                 }
                 throw new Exception("What????");
             case NodeType.Constant:
                 return (cast(Constant)tree).value;
+            default:
+                throw new RuntimeException("What");
         }
     }
 }

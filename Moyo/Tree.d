@@ -6,6 +6,7 @@ enum NodeType
     Constant,
     Expression,
     BinaryOperator,
+    Identifier,
 }
 enum TokenType
 {
@@ -13,6 +14,8 @@ enum TokenType
     Iden=0b01,
     Number=0b10,
     String=0b11,
+    LeftParenthesis = 0b100,//(
+    RightParenthesis = 0b101,//)
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,
@@ -74,6 +77,12 @@ class Constant : Tree
 {
     public override @property NodeType Type(){return NodeType.Constant;}
     MObject value;
+}
+class Identifier : Tree
+{
+    public override @property NodeType Type(){return NodeType.Identifier;}
+    mstring name;
+    
 }
 unittest
 {

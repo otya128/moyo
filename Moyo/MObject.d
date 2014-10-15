@@ -1,5 +1,6 @@
 module moyo.mobject;
 import std.conv;
+alias wstring mstring;
 enum ObjectType : byte
 {
     Object,Int,
@@ -19,13 +20,13 @@ union MObjectUnion
     ushort UInt16;
     long Int64;
     ulong UInt64;
-    wstring String;
+    mstring String;
 }
 //alias typeof(&opAddInt32) operator;//MObject function (ref MObject, ref MObject) operator;
 class MObject__vfptr
 {
     //__vtbl
-    wstring function(ref MObject) toString;
+    mstring function(ref MObject) toString;
     alias operator = MObject function(ref MObject, ref MObject);
     operator opAdd;
     operator opSub;
@@ -33,7 +34,7 @@ class MObject__vfptr
     operator opDiv;
     operator opMod;
     ObjectType type;
-    public this(ObjectType type, wstring function(ref MObject) to_s,
+    public this(ObjectType type, mstring function(ref MObject) to_s,
                 operator opAdd = &NoImplFunctionA2,
                 operator opSub = &NoImplFunctionA2,
                 operator opMul = &NoImplFunctionA2,
@@ -63,7 +64,7 @@ struct MObject
         this.value.Int32 = value;
         type = ObjectType.Int;
     }
-    public wstring toString()
+    public mstring toString()
     {
         return vfptrs[type].toString(this);
     }
@@ -92,7 +93,7 @@ public int getInt32(ref MObject mobject)
 {
     return mobject.value.Int32;
 }
-public wstring toStringObject(ref MObject mob)
+public mstring toStringObject(ref MObject mob)
 {
     return "Object";
 }/*
@@ -105,9 +106,9 @@ public MObject NoImplFunctionA2(ref MObject op1, ref MObject op2)
 {
     throw new Exception("NoImpl");
 }
-public wstring toStringInt32(ref MObject mob)
+public mstring toStringInt32(ref MObject mob)
 {
-    return to!wstring(mob.value.Int32);
+    return to!mstring(mob.value.Int32);
 }
 
 //継承できないからvfptr 多分他にいい方法ありそう

@@ -23,6 +23,7 @@ class TokenList
     int position;
     int length;
     MObject constant;
+    mstring name;
     this()
     {
         this.next = null;
@@ -141,6 +142,7 @@ class Parser
             case NodeType.Constant:
                 write((cast(Constant)tr).value);
                 break;
+            default:
                 
         }
         stdout.flush();
@@ -165,7 +167,7 @@ class Parser
         auto ret = moyo.Eval(exp);
         writeln(ret);
     }
-    public Tree expression(TokenList tl)
+    public Tree expression(ref TokenList tl)
     {
         if(!tl)throw new ParseException("Syntax Error(Expression)", tl);
         Constant cons;
@@ -176,6 +178,11 @@ class Parser
                 cons = new Constant();
                 cons.value = tl.constant;
                 tree = cons;
+                break;
+            case TokenType.LeftParenthesis:
+                auto tk = tl.next;
+                tree = parseExpression(tk);
+                tl = tk;
                 break;
             default:
                 throw new ParseException("Syntax Error(Expression)", tl);
@@ -219,11 +226,12 @@ class Parser
 
     (((2+3)*4)+5)25
     +/
-    Tree parseExpression(TokenList tl)
+    Tree parseExpression(ref TokenList tl)
     {
         Tree tree;
         Tree op1 = expression(tl);
         tl = tl.next;
+        if(!tl) return op1;
         if(!tl.type.isOperator())
         {
             throw new ParseException("Syntax Error(Operator)", tl);
@@ -233,7 +241,7 @@ class Parser
         tree = bo;
         return tree;
     }
-    void expression(TokenList tl, ref Tree tr)
+    void expression(ref TokenList tl, ref Tree tr)
     {
         BinaryOperator bo = cast(BinaryOperator)tr;
         auto bino = bo;
@@ -243,13 +251,17 @@ class Parser
         tl = tl.next;
         if(!tl)
         {
-            if(bo.OP2)bo.OP1 = op1;
-                else bo.OP2 = op1;
+            bo.OP2 = op1;
             return;
         }
         //EOT end of token
         if(!tl.type.isOperator())
         {
+            if(tl.type == TokenType.RightParenthesis)
+            {
+                bo.OP2 = op1;
+                return;
+            }
             throw new ParseException("Syntax Error(Operator)", tl);
         }
         //大きければ左再帰する
@@ -426,10 +438,33 @@ class Parser
             t.type = tt;
             t.constant = constant;
         }
+        void AddListIden(TokenType tt, int length, mstring iden)
+        {
+            auto t = new TokenList();
+            if(tl is null)
+            {
+                tl = t;
+                front = t;
+            } 
+            else tl.next = t;
+            tl = t;
+            t.position = position - length + 1;
+            t.length = 1;
+            t.type = tt;
+            t.name = iden;
+        }
         Array!ParseError errors;
         void Error(ParseError pe)
         {
             errors.insertBack(pe);
+        }
+        bool isStartIden(wchar c)
+        {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        }
+        bool isIden(wchar c)
+        {
+            return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z');
         }
         string s;
         int len = 0;
@@ -451,7 +486,7 @@ class Parser
             {
                 case ParserStat.None:
                     if(isLast)break;
-                    if(isAlpha(inchar))
+                    if(isStartIden(inchar))
                     {
                         ps = ParserStat.Iden;
                         goto case ParserStat.Iden;
@@ -478,13 +513,19 @@ class Parser
                         case '%':
                             AddList(TokenType.Mod);
                             break;
-                            case '\n':
-                                line++;
-                                pos = -1;
+                        case '\n':
+                            line++;
+                            pos = -1;
+                        break;
+                        case ' ':
+                        case '\r':
                             break;
-                            case ' ':
-                            case '\r':
-                                break;
+                        case '(':
+                            AddList(TokenType.LeftParenthesis);
+                            break;
+                        case ')':
+                            AddList(TokenType.RightParenthesis);
+                            break;
                         default:
                             Error(new ParseError("Syntax Error" ~ cast(char)inchar, line, pos));
                             break;
@@ -492,7 +533,26 @@ class Parser
                     }
                     break;
                 case ParserStat.Iden:
-                        
+                    if(isIden(inchar))
+                    {
+                        ms.write(inchar);
+                        len++;
+                    }
+                    else
+                    {
+                        mstring wstr = new mstring(len);
+                        ms.position = 0;
+                        for(int i = 0;i<len;i++)
+                        {
+                            wchar buf;
+                            ms.read(wstr[i]);
+                        }
+                        ms.position = 0;
+                        AddListIden(TokenType.Iden, len, wstr);
+                        ps = ParserStat.None;
+                        len = 0;
+                        goto case ParserStat.None;
+                    }
                     break;
                 case ParserStat.Number:
                     if(isDigit(inchar))
@@ -527,8 +587,7 @@ class Parser
         }
         foreach(TokenList i; TokenListRange(front))
         {
-            writeln(i.constant);
-            writeln(i.type);
+            writefln("\t{constant:%s, type:%s, name:%s},", i.constant, i.type, i.name);
         }
         if(errors.length > 0)
         {
