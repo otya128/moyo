@@ -6,6 +6,7 @@ import std.stdio;
 import std.stream;
 import std.ascii;
 import std.conv;
+import std.container;
 enum Encoding
 {
     ASCII,
@@ -27,6 +28,10 @@ class TokenList
         this.next = null;
     }
 }
+static void nextToken(ref TokenList tl)
+{
+    tl = tl.next;
+}
 struct TokenListRange
 {
     private TokenList __front;
@@ -47,9 +52,29 @@ struct TokenListRange
         __front = __front.next;
     }
 }
+class ParseError
+{
+    int line;
+    int pos;
+    string msg;
+    this(string message, int line, int pos)
+    {
+        msg = message;
+        this.line = line;
+        this.pos = pos;
+    }
+}
 class ParseException : Exception
 {
     this(string message)
+    {
+        super(message);
+    }
+    this(string message, TokenType tt)
+    {
+        super(message);
+    }
+    this(string message, TokenList tl)
     {
         super(message);
     }
@@ -67,7 +92,7 @@ int rank(TokenType type)
         case TokenType.Minus - TokenType.OP:
             return 6;
         default:
-            throw new ParseException("Invalid Operator: " ~ to!string(type));
+            throw new ParseException("Invalid Operator: " ~ to!string(type), type);
     }
 }
 class Parser
@@ -123,8 +148,8 @@ class Parser
     public MObject ParseAndEval()
     {
         auto tl = Lex();
-        auto exp = new Expression();
-        Tree tree = expression(tl, exp);
+        auto exp = parseExpression(tl);//new Expression();
+        //Tree tree = expression(tl, exp);
         auto moyo = new Moyo();
         to_s(exp);
         auto ret = moyo.Eval(exp);
@@ -133,8 +158,8 @@ class Parser
     public void Parse()
     {
         auto tl = Lex();
-        auto exp = new Expression();
-        Tree tree = expression(tl, exp);
+        auto exp = parseExpression(tl);//new Expression();
+        //Tree tree = expression(tl, exp);
         auto moyo = new Moyo();
         to_s(exp);
         auto ret = moyo.Eval(exp);
@@ -142,7 +167,7 @@ class Parser
     }
     public Tree expression(TokenList tl)
     {
-        if(!tl)throw new ParseException("Syntax Error(Expression)");
+        if(!tl)throw new ParseException("Syntax Error(Expression)", tl);
         Constant cons;
         Tree tree;
         switch(tl.type)
@@ -153,7 +178,7 @@ class Parser
                 tree = cons;
                 break;
             default:
-                throw new ParseException("Syntax Error(Expression)");
+                throw new ParseException("Syntax Error(Expression)", tl);
         }
         return tree;
     }
@@ -194,6 +219,59 @@ class Parser
 
     (((2+3)*4)+5)25
     +/
+    Tree parseExpression(TokenList tl)
+    {
+        Tree tree;
+        Tree op1 = expression(tl);
+        tl = tl.next;
+        if(!tl.type.isOperator())
+        {
+            throw new ParseException("Syntax Error(Operator)", tl);
+        }
+        Tree bo = new BinaryOperator(op1, null, tl.type);
+        expression(tl, bo);
+        tree = bo;
+        return tree;
+    }
+    void expression(TokenList tl, ref Tree tr)
+    {
+        BinaryOperator bo = cast(BinaryOperator)tr;
+        auto bino = bo;
+        auto op = tl.type;
+        tl = tl.next;
+        Tree op1 = expression(tl);
+        tl = tl.next;
+        if(!tl)
+        {
+            if(bo.OP2)bo.OP1 = op1;
+                else bo.OP2 = op1;
+            return;
+        }
+        //EOT end of token
+        if(!tl.type.isOperator())
+        {
+            throw new ParseException("Syntax Error(Operator)", tl);
+        }
+        //大きければ左再帰する
+        if(tl.type.rank() >= bo.type.rank)
+        {
+            bo.OP2 = op1;
+           // bo.OP1 = ;
+            bo = new BinaryOperator(null, null, tl.type);
+            bo.OP1 = bino;
+            tr = bo;
+            expression(tl, tr);
+        }
+        else//右再帰 
+        {
+            auto bi = new BinaryOperator(op1, null, tl.type);
+            bo.OP2 = bi;
+            Tree t = bo.OP2;
+            expression(tl, t);
+            bo.OP2 = t;
+        }
+    }
+/+
     public Tree expression(TokenList tl, Tree parent)
     {
         return expressionLeft(tl, parent);
@@ -265,7 +343,7 @@ class Parser
             }
             else
             {
-                BinaryOperator bo2 = cast(BinaryOperator)expressionLeft(tl,parent);//(expressionRight(tk, parent));
+                BinaryOperator bo2 = cast(BinaryOperator)expressionRight(tk,parent);//(expressionRight(tk, parent));
                 write("else\n");to_s(bo);
                 writeln();
                 to_s(bo2);
@@ -310,8 +388,9 @@ class Parser
                 writeln();
                 to_s(bo2);
                 writeln();
-                return bo2;
+                writefln("====%s,%s====", bo.type, bo2.type);
                 if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo2;//2;// bo=bo2;
+                return bo2;
                 //bo = bo2;
                 /*
                 bo2.OP2 = bo;
@@ -322,7 +401,7 @@ class Parser
        if(!(cast(Expression)parent).OP1)(cast(Expression)parent).OP1 = bo;
         ret = bo;
         return ret;
-    }
+    }+/
     public TokenList Lex()
     {
         TokenList tl = null;
@@ -347,8 +426,15 @@ class Parser
             t.type = tt;
             t.constant = constant;
         }
+        Array!ParseError errors;
+        void Error(ParseError pe)
+        {
+            errors.insertBack(pe);
+        }
         string s;
         int len = 0;
+        int line = 0;
+        int pos = 0;
         while(true){
             bool isLast = false;
             if(isWide)
@@ -393,11 +479,16 @@ class Parser
                             AddList(TokenType.Mod);
                             break;
                             case '\n':
+                                line++;
+                                pos = -1;
+                            break;
                             case ' ':
                             case '\r':
                                 break;
                         default:
-                            throw new ParseException("Syntax Error" ~ cast(char)inchar);
+                            Error(new ParseError("Syntax Error" ~ cast(char)inchar, line, pos));
+                            break;
+                            //throw new ParseException("Syntax Error" ~ cast(char)inchar);
                     }
                     break;
                 case ParserStat.Iden:
@@ -429,6 +520,7 @@ class Parser
                     break;
                 default:
             }
+            pos++;
             if(isLast)break;
             write(inchar);
             position++;
@@ -437,6 +529,14 @@ class Parser
         {
             writeln(i.constant);
             writeln(i.type);
+        }
+        if(errors.length > 0)
+        {
+            foreach(ParseError e; errors)
+            {
+                writefln("(%d): Error: %s", e.line, e.msg);
+            }
+            throw new ParseException("Error!");
         }
         return front;
     }
