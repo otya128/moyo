@@ -1,6 +1,7 @@
 import std.stdio, std.stream;
 import moyo.tree;
 import moyo.parser;
+import moyo.moyo;
 
  int main(string[] argv)
 {
@@ -9,10 +10,9 @@ import moyo.parser;
     {
     string line = readln();
     auto ms = new MemoryStream();
+    ms.writeString(line);
     ms.position = 0;
-    ms.write(line);
-    ms.position = 4;//????
-    auto parser = new Parser(ms,Encoding.ASCII);
+    auto parser = new Parser(ms,Encoding.ASCII, "stdin");
     try
     {
         parser.Parse();
@@ -20,6 +20,14 @@ import moyo.parser;
     catch(ParseException pe)
     {
         writeln(pe.msg);
+    }
+    catch(RuntimeException re)
+    {
+        writeln(re);
+    }
+    catch(Exception e)
+    {
+        writeln(e);
     }
     ms.close();
     }
@@ -33,9 +41,9 @@ unittest
     void test(string val, int result)
     {
         auto ms = new MemoryStream();
-        ms.write(val);
-        ms.position = 4;//????
-        auto parser = new Parser(ms,Encoding.ASCII);
+        ms.writeString(val);
+        ms.position = 0;
+        auto parser = new Parser(ms,Encoding.ASCII, "unittest");
         try
         {
             assert(parser.ParseAndEval().value.Int32 == result);
@@ -56,9 +64,9 @@ unittest
         bool opAssign(int result)
         {
             auto ms = new MemoryStream();
-            ms.write(val);
-            ms.position = 4;//????
-            auto parser = new Parser(ms,Encoding.ASCII);
+            ms.writeString(val);
+            ms.position = 0;
+            auto parser = new Parser(ms,Encoding.ASCII, "unittest");
             try
             {
                 assert(parser.ParseAndEval().value.Int32 == result);
@@ -74,9 +82,17 @@ unittest
     test("1+1", 2);//1+1は2
     test("2*3+2", 8);//2*3+2は8
     test("2*3+2+1", 9);//2*3+2+1は9
-    Eval("2+3*4+2") = 16;
-    Eval("2+3*4*5+6*7+8") = 112;
-    Eval("2+3*4*5") = 62;
-    Eval("(2+3)*4*5") = 100;
+    Eval("2+3*4+2") = 2+3*4+2;
+    Eval("2+3*4*5+6*7+8") = 2+3*4*5+6*7+8;
+    Eval("2+3*4*5") = 2+3*4*5;
+    Eval("(2+3)*4*5") = (2+3)*4*5;
+    Eval("(1)+(2)") = (1)+(2);
+    mixin(Test!"2+(3+4)*5"());
+    mixin(Test!"2+20/5*3"());
     writeln("Test");
+}
+//D言語の式の評価結果と同じか検証
+char[] Test(const char[] V)()
+{
+    return "test(\""~V~"\", "~V~");";
 }

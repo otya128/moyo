@@ -6,7 +6,8 @@ enum NodeType
     Constant,
     Expression,
     BinaryOperator,
-    Identifier,
+    Variable,
+    FunctionArgs,
 }
 enum TokenType
 {
@@ -14,14 +15,16 @@ enum TokenType
     Iden=0b01,
     Number=0b10,
     String=0b11,
-    LeftParenthesis = 0b100,//(
     RightParenthesis = 0b101,//)
+    Comma = 0b110,
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,
     Mul=OP|2,
     Div=OP|3,
     Mod=OP|4,
+    Assign = OP | 5,
+    LeftParenthesis = OP | 6,//(
 }
 
 /+
@@ -78,11 +81,20 @@ class Constant : Tree
     public override @property NodeType Type(){return NodeType.Constant;}
     MObject value;
 }
-class Identifier : Tree
+class Variable : Tree
 {
-    public override @property NodeType Type(){return NodeType.Identifier;}
+    public override @property NodeType Type(){return NodeType.Variable;}
     mstring name;
-    
+    public this(mstring name)
+    {
+        this.name = name;
+    }
+}
+class FunctionArgs : Tree
+{
+    import std.container;
+    public override @property NodeType Type(){return NodeType.FunctionArgs;}
+    Array!Tree args;
 }
 unittest
 {

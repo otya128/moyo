@@ -9,8 +9,12 @@ import std.conv;
 import std.container;
 enum Encoding
 {
-    ASCII,
-    UTF16,
+    ASCII = 0b000,
+    multiByte = 0b000,
+    UTF8 = 1,
+    shift_jis = 2,
+    wide = 0b10000,
+    UTF16 = 0b10000,
 }
 bool isOperator(TokenType tt)
 {
@@ -22,6 +26,8 @@ class TokenList
     TokenList next;
     int position;
     int length;
+    int line;
+    int linepos;
     MObject constant;
     mstring name;
     this()
@@ -57,12 +63,28 @@ class ParseError
 {
     int line;
     int pos;
+    int linepos;
+    int length;
     string msg;
-    this(string message, int line, int pos)
+    this(string message)
+    {
+        this.msg = message;
+    }
+    this(string message, TokenList tl)
     {
         msg = message;
+        this.line = tl.line;
+        this.linepos = tl.linepos;
+        this.pos = tl.position;
+        this.length = tl.length;
+    }
+    this(string message, int line, int pos, int length, int linepos)
+    {
+        msg = message;
+        this.linepos = linepos;
         this.line = line;
         this.pos = pos;
+        this.length = length;
     }
 }
 class ParseException : Exception
@@ -80,6 +102,7 @@ class ParseException : Exception
         super(message);
     }
 }
+int AssignRank = 16;
 int rank(TokenType type)
 {
     //テーブル化されやすくなりたい
@@ -92,25 +115,22 @@ int rank(TokenType type)
         case TokenType.Plus - TokenType.OP:
         case TokenType.Minus - TokenType.OP:
             return 6;
+        case TokenType.Assign - TokenType.OP:
+            return 16;
         default:
             throw new ParseException("Invalid Operator: " ~ to!string(type), type);
     }
 }
 class Parser
 {
-    enum ParserStat
-    {
-        None,
-        Iden,
-        Number,
-        String,
-    }
-    InputStream input;
+    Stream input;
     Encoding enc;
-    public this(InputStream s, Encoding e)
+    string name;
+    public this(Stream s, Encoding e, string name)
     {
         input = s;
         enc = e;
+        this.name = name;
     }
     void to_s(Tree tr)
     {
@@ -123,53 +143,105 @@ class Parser
         switch(tr.Type)
         {
             case NodeType.Expression:
-                write('(');
+                write('{');
                 stdout.flush();
                 to_s((cast(Expression)tr).OP1);
-                write(')');
+                write('}');
                 break;
             case NodeType.BinaryOperator:
-                write('(');
+                write("{type:");
                 write((cast(BinaryOperator)tr).type);
-                write(' ');
+                write(',');
                 stdout.flush();
+                write("[");
                 to_s((cast(BinaryOperator)tr).OP1);
-                write(' ');
+                write(',');
                 stdout.flush();
                 to_s((cast(BinaryOperator)tr).OP2);
-                write(')');
+                write("]}");
                 break;
             case NodeType.Constant:
                 write((cast(Constant)tr).value);
+                break;
+            case NodeType.Variable:
+                write((cast(Variable)tr).name);
+                break;
+            case NodeType.FunctionArgs:
+                write('[');
+                foreach(t; ((cast(FunctionArgs)tr).args))
+                {
+                    to_s(t);
+                    write(',');
+                }
+                write(']');
                 break;
             default:
                 
         }
         stdout.flush();
     }
+    Variables global;
     public MObject ParseAndEval()
     {
         auto tl = Lex();
         auto exp = parseExpression(tl);//new Expression();
         //Tree tree = expression(tl, exp);
-        auto moyo = new Moyo();
-        to_s(exp);
+        ERROR();
+        global.initGlobal();
+        auto moyo = new Moyo(&global);
+        //to_s(exp);
         auto ret = moyo.Eval(exp);
         return ret;
+    }
+    //エラーだったら表示して例外投げて死ぬ
+    public void ERROR()
+    {
+        if(errors.length > 0)
+        {
+            foreach(ParseError e; errors)
+            {
+                stderr.writefln("%s(%d): Error: %s", name, e.line, e.msg);
+                stderr.writefln(">%s", getLine(input, e.pos, e.length));
+                stderr.write(' ');
+                for(int i = 0;i<e.linepos;i++)
+                {
+                    stderr.write(' ');
+                }
+                for(int i = 0;i<e.length - 1;i++)
+                {
+                    stderr.write('^');
+                }
+                stderr.writeln('^');
+            }
+            throw new ParseException("Error!");
+        }
     }
     public void Parse()
     {
         auto tl = Lex();
+        foreach(TokenList i; TokenListRange(tl))
+        {
+            writefln("\t{constant:%s, type:%s, name:%s},", i.constant, i.type, i.name);
+        }
         auto exp = parseExpression(tl);//new Expression();
-        //Tree tree = expression(tl, exp);
-        auto moyo = new Moyo();
         to_s(exp);
+        writeln();
+        ERROR();
+        //Tree tree = expression(tl, exp);
+        global.initGlobal();
+        auto moyo = new Moyo(&global);
+        writeln();
         auto ret = moyo.Eval(exp);
+        writeln();
         writeln(ret);
     }
     public Tree expression(ref TokenList tl)
     {
-        if(!tl)throw new ParseException("Syntax Error(Expression)", tl);
+        if(!tl)
+        {
+            Error(new ParseError("Syntax Error(Expression) parser bug?"));
+            return null;
+        }//throw new ParseException("Syntax Error(Expression)", tl);
         Constant cons;
         Tree tree;
         switch(tl.type)
@@ -184,8 +256,12 @@ class Parser
                 tree = parseExpression(tk);
                 tl = tk;
                 break;
+            case TokenType.Iden:
+                tree = new Variable(tl.name);
+                break;
             default:
-                throw new ParseException("Syntax Error(Expression)", tl);
+                Error(new ParseError("Syntax Error(Expression)", tl));
+                return null;
         }
         return tree;
     }
@@ -230,16 +306,52 @@ class Parser
     {
         Tree tree;
         Tree op1 = expression(tl);
+        if(!tl) return op1;
         tl = tl.next;
         if(!tl) return op1;
         if(!tl.type.isOperator())
         {
-            throw new ParseException("Syntax Error(Operator)", tl);
+            if(tl.type == TokenType.Comma)
+            {
+                return op1;
+            }
+            if(tl.type == TokenType.RightParenthesis)
+            {
+                return op1;
+            }
+            Error(new ParseError("Syntax Error(Operator)", tl));
+            return null;
         }
         Tree bo = new BinaryOperator(op1, null, tl.type);
+        if(expression2(tl, bo)) return bo;
+        if(!tl) return bo;
         expression(tl, bo);
         tree = bo;
         return tree;
+    }
+    auto expression2(ref TokenList tl, ref Tree tr)
+    {
+        BinaryOperator bo = cast(BinaryOperator)tr;
+        if(bo.type == TokenType.LeftParenthesis)
+        {
+            parseFunction(tl, tr);
+            return true;
+        }
+        return false;
+    }
+    auto parseFunction(ref TokenList tl, ref Tree tr)
+    {
+        BinaryOperator bo = cast(BinaryOperator)tr;
+        auto func = new FunctionArgs();
+        bo.OP2 = func;
+        tl = tl.next;
+        while(tl !is null && tl.type != TokenType.RightParenthesis)
+        {
+            func.args.insertBack(parseExpression(tl));
+            if(tl)tl = tl.next;
+        }
+        //if(tl)tl = tl.next;
+        return func;
     }
     void expression(ref TokenList tl, ref Tree tr)
     {
@@ -248,8 +360,14 @@ class Parser
         auto op = tl.type;
         tl = tl.next;
         Tree op1 = expression(tl);
+        if(!tl) return;
         tl = tl.next;
         if(!tl)
+        {
+            bo.OP2 = op1;
+            return;
+        }
+        if(tl.type == TokenType.Comma)
         {
             bo.OP2 = op1;
             return;
@@ -262,10 +380,15 @@ class Parser
                 bo.OP2 = op1;
                 return;
             }
-            throw new ParseException("Syntax Error(Operator)", tl);
+            Error(new ParseError("Syntax Error(Operator): " ~ tl.type.to!string, tl));
+            return;//throw new ParseException("Syntax Error(Operator)", tl);
+        }
+        if(expression2(tl, tr))
+        {
+            return;
         }
         //大きければ左再帰する
-        if(tl.type.rank() >= bo.type.rank)
+        if(tl.type.rank() >= bo.type.rank && bo.type.rank != AssignRank)
         {
             bo.OP2 = op1;
            // bo.OP1 = ;
@@ -414,15 +537,33 @@ class Parser
         ret = bo;
         return ret;
     }+/
+    enum ParserStat
+    {
+        None,
+        Iden,
+        Number,
+        String,
+        InvalidChar,
+    }
+    Array!ParseError errors;
+    void Error(ParseError pe)
+    {
+        errors.insertBack(pe);
+    }
     public TokenList Lex()
     {
         TokenList tl = null;
         TokenList front;
-        bool isWide = enc == Encoding.UTF16;
+        bool isWide = (enc & Encoding.UTF16) == Encoding.UTF16;
         wchar inchar;
         ParserStat ps;
-        int position;
+        int position = 0;
         MemoryStream ms = new MemoryStream();
+        string s;
+        int len = 0;
+        int line = 0;
+        int linepos = 0;
+        int start = 0;
         void AddList(TokenType tt, int length = 1, MObject constant = MObject.init)
         {
             auto t = new TokenList();
@@ -450,13 +591,9 @@ class Parser
             tl = t;
             t.position = position - length + 1;
             t.length = 1;
+            t.linepos = linepos - length + 1;
             t.type = tt;
             t.name = iden;
-        }
-        Array!ParseError errors;
-        void Error(ParseError pe)
-        {
-            errors.insertBack(pe);
         }
         bool isStartIden(wchar c)
         {
@@ -466,10 +603,10 @@ class Parser
         {
             return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z');
         }
-        string s;
-        int len = 0;
-        int line = 0;
-        int pos = 0;
+        bool isIgnore(wchar c)
+        {
+            return c == ' ' || c == '\r' || c == '\n' || c == '\t';
+        }
         while(true){
             bool isLast = false;
             if(isWide)
@@ -513,12 +650,18 @@ class Parser
                         case '%':
                             AddList(TokenType.Mod);
                             break;
+                        case '=':
+                            AddList(TokenType.Assign);
+                        case ',':
+                            AddList(TokenType.Comma);
+                            break;
                         case '\n':
                             line++;
-                            pos = -1;
+                            linepos = -1;
                         break;
                         case ' ':
                         case '\r':
+                        case '\t':
                             break;
                         case '(':
                             AddList(TokenType.LeftParenthesis);
@@ -527,7 +670,8 @@ class Parser
                             AddList(TokenType.RightParenthesis);
                             break;
                         default:
-                            Error(new ParseError("Syntax Error" ~ cast(char)inchar, line, pos));
+                            ps = ParserStat.InvalidChar;
+                            start = linepos;
                             break;
                             //throw new ParseException("Syntax Error" ~ cast(char)inchar);
                     }
@@ -578,25 +722,56 @@ class Parser
                         goto case ParserStat.None;
                     }
                     break;
+                case ParserStat.InvalidChar:
+                    if(isIgnore(inchar))
+                    {
+                        Error(new ParseError("Syntax Error", line, position, len, position));
+                        ps = ParserStat.None;
+                        goto case ParserStat.None;
+                    }
+                    break;
                 default:
             }
-            pos++;
+            linepos++;
             if(isLast)break;
             write(inchar);
             position++;
         }
-        foreach(TokenList i; TokenListRange(front))
-        {
-            writefln("\t{constant:%s, type:%s, name:%s},", i.constant, i.type, i.name);
-        }
-        if(errors.length > 0)
-        {
-            foreach(ParseError e; errors)
-            {
-                writefln("(%d): Error: %s", e.line, e.msg);
-            }
-            throw new ParseException("Error!");
-        }
         return front;
+    }
+    wchar getc()
+    {
+        if(enc & Encoding.wide)
+        {
+            return input.getcw;
+        }
+        return cast(wchar)(input.getc());
+    }
+    wchar getbackc()
+    {
+        if(enc & Encoding.wide)
+        {
+            input.position=input.position - 2;
+            wchar c = cast(wchar)(input.getcw);
+            input.position=input.position - 2;
+            return c;
+        }
+        input.position=input.position-1;
+        wchar c = cast(wchar)(input.getc);
+        input.position=input.position-1;
+        return c;
+    }
+    string getLine(Stream s, int pos, int length = 0)
+    {
+        s.position = pos;
+        while(true)
+        {
+            auto c = getbackc();
+            if(c == '\n' || c == '\r' || c == wchar.init || s.position == 0)
+            {
+                break;
+            }
+        }
+        return cast(string)s.readLine;
     }
 }

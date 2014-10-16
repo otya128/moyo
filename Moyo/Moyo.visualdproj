@@ -189,8 +189,9 @@
   <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
  </Config>
  <Folder name="Moyo">
-  <File path="MObject.d" />
+  <File path="library.d" />
   <File path="main.d" />
+  <File path="MObject.d" />
   <File path="moyo.d" />
   <File path="Parser.d" />
   <File path="Tree.d" />
