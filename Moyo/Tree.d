@@ -11,6 +11,7 @@ enum NodeType
     Variable,
     FunctionArgs,
     Statements,
+    ExpressionStatement,
 }
 enum TokenType
 {
@@ -98,11 +99,23 @@ class FunctionArgs : Expression
     public override @property NodeType Type(){return NodeType.FunctionArgs;}
     Array!Expression args;
 }
+abstract class Statement : Tree
+{
+}
+class ExpressionStatement : Statement
+{
+    public override @property NodeType Type(){return NodeType.ExpressionStatement;}
+    this(Expression exp)
+    {
+        this.expression = exp;
+    }
+	Expression expression;
+}
 class Statements : Tree
 {
-    import std.container;
+	import std.container;
     public override @property NodeType Type(){return NodeType.Statements;}
-    Array!Tree statements;
+    Array!Statement statements;
 }
 unittest
 {

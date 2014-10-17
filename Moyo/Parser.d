@@ -20,6 +20,10 @@ bool isOperator(TokenType tt)
 {
     return !!(tt & 0b10000);
 }
+bool isExpression(TokenType tt)
+{
+    return tt.isOperator() || tt <= TokenType.String;
+}
 class TokenList
 {
     TokenType type;
@@ -169,6 +173,18 @@ class Parser
                 }
                 write(']');
                 break;
+			case NodeType.Statements:
+                write('[');
+                foreach(t; ((cast(Statements)tr).statements))
+                {
+                    to_s(t);
+                    write(',');
+                }
+                write(']');
+				break;
+            case NodeType.ExpressionStatement:
+                to_s((cast(ExpressionStatement)tr).expression);
+                break;
             default:
                 
         }
@@ -220,7 +236,7 @@ class Parser
         {
             writefln("\t{constant:%s, type:%s, name:%s},", i.constant, i.type, i.name);
         }
-        auto exp = parseExpression(tl);//new Expression();
+        auto exp = parseStatements(tl);//parseExpression(tl);//new Expression();
         to_s(exp);
         writeln();
         ERROR();
@@ -232,9 +248,18 @@ class Parser
         writeln();
         writeln(ret);
     }
-    void parse(ref TokenList tl)
+    Statements parseStatements(ref TokenList tl)
     {
-
+		Statements statements = new Statements();
+		while(tl)
+		{
+			if(tl.type.isExpression())
+			{
+				statements.statements.insertBack(new ExpressionStatement(parseExpression(tl)));
+			}
+			if(tl)tl = tl.next;
+		}
+		return statements;
     }
     public Expression expression(ref TokenList tl)
     {
@@ -266,43 +291,6 @@ class Parser
         }
         return tree;
     }
-    /+
-    []
-    exp
-    1
-    exp
-    +1
-    exp2
-    bo?+1
-    set bo1+1
-
-    1+2+3
-    []
-    1
-    +2
-    bo?+2
-    +3
-    bo?+3
-    set (bo?+2)+3
-    ret bo?+2
-    set (bo1+2)+3
-    +/
-    /+
-    2+3*4+5
-    ((2+(3*4))+5)
-          +
-         / \
-        +   5
-       / \
-      2   *
-         / \
-        3   4
-    ((3*4)+5) 2+3*4+5
-    (2+(3*4)) 2+3*4
-    ((3*4)+5) 3*4+5
-
-    (((2+3)*4)+5)25
-    +/
     Expression parseExpression(ref TokenList tl)
     {
         Expression tree;
