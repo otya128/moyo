@@ -327,6 +327,24 @@ class Parser
         if(expression2(tl, bo)) return bo;
         if(!tl) return bo;
         expression(tl, bo);
+        while(tl && tl.next && tl.type.isOperator())//kimmo
+        {
+            auto bobo = cast(BinaryOperator)bo;
+            if(tl.type.rank() >= bobo.type.rank && bobo.type.rank != AssignRank)
+            {
+                bobo = new BinaryOperator(null, null, tl.type);
+                bobo.OP1 = bo;
+                tree = bobo;
+                expression(tl, tree);
+                bo = tree;
+            }
+            else//右再帰 
+            {
+                auto bi = new BinaryOperator(op1, null, tl.type);
+                bobo.OP2 = bi;
+                expression(tl, bobo.OP2);
+            }
+        }
         tree = bo;
         return tree;
     }
@@ -349,7 +367,6 @@ class Parser
         while(tl !is null && tl.type != TokenType.RightParenthesis)
         {
             func.args.insertBack(parseExpression(tl));
-            //print(print(1),2)
             if(tl is null || tl.type == TokenType.RightParenthesis) break;
             if(tl)tl = tl.next;
         }
@@ -394,6 +411,8 @@ class Parser
         if(tl.type.rank() >= bo.type.rank && bo.type.rank != AssignRank)
         {
             bo.OP2 = op1;
+            tr = bo;
+            return;
            // bo.OP1 = ;
             bo = new BinaryOperator(null, null, tl.type);
             bo.OP1 = bino;
@@ -404,9 +423,23 @@ class Parser
         {
             auto bi = new BinaryOperator(op1, null, tl.type);
             bo.OP2 = bi;
-            Expression t = bo.OP2;
-            expression(tl, t);
-            bo.OP2 = t;
+            expression(tl, bo.OP2);
+            while(tl && tl.next && tl.type.isOperator())//kimmo
+            {
+                if(tl.type.rank() >= bo.type.rank && bo.type.rank != AssignRank)
+                {
+                    bo = new BinaryOperator(null, null, tl.type);
+                    bo.OP1 = bino;
+                    tr = bo;
+                    expression(tl, tr);
+                }
+                else//右再帰 
+                {
+                    bi = new BinaryOperator(bo.OP2, null, tl.type);
+                    bo.OP2 = bi;
+                    expression(tl, bo.OP2);
+                }
+            }
         }
     }
     enum ParserStat
@@ -606,7 +639,7 @@ class Parser
             }
             linepos++;
             if(isLast)break;
-            write(inchar);
+//            write(inchar);
             position++;
         }
         return front;
