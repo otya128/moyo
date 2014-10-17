@@ -1,13 +1,16 @@
+/**
+Define syntax tree
+*/
 module moyo.tree;
 import moyo.mobject;
 enum NodeType
 {
     Node,
     Constant,
-    Expression,
     BinaryOperator,
     Variable,
     FunctionArgs,
+    Statements,
 }
 enum TokenType
 {
@@ -54,21 +57,20 @@ enum TokenType
 2 2
 +/
 //
-class Tree
+abstract class Tree
 {
     public @property NodeType Type(){return NodeType.Node;}
 }
-class Expression : Tree
+abstract class Expression : Tree
 {
-    public override @property NodeType Type(){return NodeType.Expression;}
-    Tree OP1;
+    ObjectType valueType;
 }
-class BinaryOperator : Tree
+class BinaryOperator : Expression
 {//override
     public override @property NodeType Type(){return NodeType.BinaryOperator;}
-    Tree OP1;
-    Tree OP2;
-    public this(Tree op1, Tree op2, TokenType tt)
+    Expression OP1;
+    Expression OP2;
+    public this(Expression op1, Expression op2, TokenType tt)
     {
         this.OP1 = op1;
         this.OP2 = op2;
@@ -76,12 +78,12 @@ class BinaryOperator : Tree
     }
     TokenType type;
 }
-class Constant : Tree
+class Constant : Expression
 {
     public override @property NodeType Type(){return NodeType.Constant;}
     MObject value;
 }
-class Variable : Tree
+class Variable : Expression
 {
     public override @property NodeType Type(){return NodeType.Variable;}
     mstring name;
@@ -90,11 +92,17 @@ class Variable : Tree
         this.name = name;
     }
 }
-class FunctionArgs : Tree
+class FunctionArgs : Expression
 {
     import std.container;
     public override @property NodeType Type(){return NodeType.FunctionArgs;}
-    Array!Tree args;
+    Array!Expression args;
+}
+class Statements : Tree
+{
+    import std.container;
+    public override @property NodeType Type(){return NodeType.Statements;}
+    Array!Tree statements;
 }
 unittest
 {

@@ -84,9 +84,6 @@ class Moyo
         {
             case NodeType.Variable:
                 return variable.get((cast(Variable)tree).name);
-            case NodeType.Expression:
-                return Eval((cast(Expression)tree).OP1);
-                break;
             case NodeType.BinaryOperator:
                 BinaryOperator bo = cast(BinaryOperator)tree;
                 switch(bo.type)

@@ -3,7 +3,7 @@ import std.conv;
 alias wstring mstring;
 enum ObjectType : byte
 {
-    Object,Int,Function
+    Void,Object,Int,Function
 }
 //size 64bit
 union MObjectUnion
@@ -64,6 +64,7 @@ class MObject__vfptr
     }
 }
 MObject__vfptr vfptrs[ObjectType.max + 1] = [
+    ObjectType.Void: new MObject__vfptr(ObjectType.Void, &toStringTypename!"Void"),
     ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
     ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32),
     ObjectType.Function: new MObject__vfptr(ObjectType.Function, &toStringFunction),
@@ -116,6 +117,10 @@ MObject Void = MObject();
 public int getInt32(ref MObject mobject)
 {
     return mobject.value.Int32;
+}
+public mstring toStringTypename(string S)(ref MObject)
+{
+    return S;
 }
 public mstring toStringObject(ref MObject mob)
 {
