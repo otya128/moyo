@@ -348,9 +348,11 @@ class Parser
         while(tl !is null && tl.type != TokenType.RightParenthesis)
         {
             func.args.insertBack(parseExpression(tl));
+            //print(print(1),2)
+            if(tl is null || tl.type == TokenType.RightParenthesis) break;
             if(tl)tl = tl.next;
         }
-        //if(tl)tl = tl.next;
+        if(tl)tl = tl.next;
         return func;
     }
     void expression(ref TokenList tl, ref Tree tr)
@@ -591,7 +593,7 @@ class Parser
             tl = t;
             t.position = position - length + 1;
             t.length = 1;
-            t.linepos = linepos - length + 1;
+            t.linepos = linepos - length;
             t.type = tt;
             t.name = iden;
         }
