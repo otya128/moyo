@@ -59,6 +59,10 @@ struct Variables
         //MObject mob = this.var.get(str, parentGet(str));
         //return var[str];
     }
+    public void define(mstring str, ref MObject ret)
+    {
+        var[str] = ret;
+    }
     public void set(mstring str, ref MObject ret)
     {
         var[str] = ret;

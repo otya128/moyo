@@ -168,7 +168,8 @@ abstract class Function
     MObject opCall(Array!MObject args);
     mstring toMString();
 }
-alias nativeFunctionType = MObject function(Array!MObject);
+alias Array!MObject argsType;
+alias nativeFunctionType = MObject function(argsType);
 mstring toStringFunction(ref MObject mob)
 {
     return mob.value.Func.toMString();
