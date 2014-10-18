@@ -24,8 +24,25 @@ bool isExpression(TokenType tt)
 {
     return tt.isOperator() || tt <= TokenType.String;
 }
+Reserved[mstring] reservedTable;
+enum Reserved : byte
+{
+    None,
+    If,
+    Else,
+    For
+}
 class TokenList
 {
+    static this()
+    {
+        reservedTable = [
+            "if": Reserved.If,
+            "else": Reserved.Else,
+            "for": Reserved.For,
+        ];
+        reservedTable.rehash();
+    }
     TokenType type;
     TokenList next;
     int position;
@@ -36,8 +53,14 @@ class TokenList
     mstring name;
     this()
     {
-        this.next = null;
     }
+    this(mstring name)
+    {
+        this.name = name;
+        auto res = (name in reservedTable);
+        reserved = res ? *res : Reserved.None;
+    }
+    Reserved reserved;
 }
 static void nextToken(ref TokenList tl)
 {
@@ -294,16 +317,17 @@ class Parser
     {
         if(tl.type == TokenType.Iden)
         {
-            if(tl.next && tl.next.type == TokenType.Iden)
+            switch(tl.reserved)
             {
-                //DefineVariable
-                return parseDefineVariable(tl);
-            }
-            switch(tl.name)
-            {
-                case "if":
+                case Reserved.If:
                     return parseIf(tl);
+                case Reserved.None:
                 default:
+                    if(tl.next && tl.next.type == TokenType.Iden)
+                    {
+                        //DefineVariable
+                        return parseDefineVariable(tl);
+                    }
             }
         }
         if(tl.type.isExpression())
@@ -354,6 +378,11 @@ class Parser
         tl = tl.next;
         statementIf.condition = parseExpression(tl);
         statementIf.thenStatement = parseStatement(tl);
+        if(tl && tl.name == "else")
+        {
+            tl = tl.next;
+            statementIf.elseStatement = parseStatement(tl);
+        }
         return statementIf;
     }
     public Expression expression(ref TokenList tl)
@@ -577,7 +606,7 @@ class Parser
         }
         void AddListIden(TokenType tt, int length, mstring iden)
         {
-            auto t = new TokenList();
+            auto t = new TokenList(iden);
             if(tl is null)
             {
                 tl = t;
@@ -589,7 +618,6 @@ class Parser
             t.length = 1;
             t.linepos = linepos - length;
             t.type = tt;
-            t.name = iden;
         }
         void AddListString(TokenType tt, int length, mstring str)
         {
@@ -620,21 +648,30 @@ class Parser
         {
             return c == ' ' || c == '\r' || c == '\n' || c == '\t';
         }
-        while(true){
-            bool isLast = false;
+        bool isLast = false;
+        wchar next()
+        {
+            wchar next;
             if(isWide)
             {
-                inchar = input.getcw();
-                if(inchar == wchar.init)isLast = true;
+                next = input.getcw();
+                if(next == wchar.init)isLast = true;
             }
             else
             {
-                inchar = cast(wchar)input.getc();
-                if(inchar == char.init)isLast = true;
+                next = cast(wchar)input.getc();
+                if(next == char.init)isLast = true;
             }
+            position++;
+            linepos++;
+            return next;
+        }
+        while(true){
+            inchar = next();
             switch(ps)
             {
                 case ParserStat.None:
+                    case_ParserStat_None:
                     if(isLast)break;
                     if(isStartIden(inchar))
                     {
@@ -664,7 +701,15 @@ class Parser
                             AddList(TokenType.Mod);
                             break;
                         case '=':
-                            AddList(TokenType.Assign);
+                            wchar nextchar = next();
+                            if(nextchar == '=')
+                                AddList(TokenType.Equals);
+                            else
+                            {
+                                AddList(TokenType.Assign);
+                                inchar = nextchar;
+                                goto case_ParserStat_None;
+                            }
                             break;
                         case ',':
                             AddList(TokenType.Comma);
@@ -800,10 +845,8 @@ class Parser
                     break;
                 default:
             }
-            linepos++;
             if(isLast)break;
             //            write(inchar);
-            position++;
         }
         return front;
     }

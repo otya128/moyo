@@ -71,7 +71,7 @@
   <versionlevel>0</versionlevel>
   <versionids />
   <dump_source>0</dump_source>
-  <mapverbosity>0</mapverbosity>
+  <mapverbosity>4</mapverbosity>
   <createImplib>0</createImplib>
   <defaultlibname />
   <debuglibname />
@@ -197,10 +197,10 @@
   <filesToClean>*.obj;*.cmd;*.build;*.json;*.dep</filesToClean>
  </Config>
  <Folder name="Moyo">
+  <File path="interpreter.d" />
   <File path="library.d" />
   <File path="main.d" />
   <File path="MObject.d" />
-  <File path="interpreter.d" />
   <File path="Parser.d" />
   <File path="Tree.d" />
  </Folder>

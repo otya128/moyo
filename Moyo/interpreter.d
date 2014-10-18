@@ -110,9 +110,13 @@ class Interpreter
                 auto statementIf = cast(If)statement;
                 MObject cond;
                 cond = Eval(statementIf.condition);
-                if(cond.value.Int32)
+                if(cond.opBool)
                 {
                     runStatement(statementIf.thenStatement, value);
+                }
+                else
+                {
+                    if(statementIf.elseStatement)runStatement(statementIf.elseStatement, value);
                 }
                 break;
             case NodeType.For:
@@ -131,6 +135,12 @@ class Interpreter
     }
     public MObject Eval(Expression tree)
     {
+        if(!tree)
+        {
+            alias RuntimeException atou;
+            atou re = new RuntimeException("What~!!");
+            throw re;
+        }
         switch(tree.Type)
         {
             case NodeType.Variable:
@@ -168,6 +178,9 @@ class Interpreter
                     mixin(GenOperator!("Mul", "*"));
                     mixin(GenOperator!("Div", "/"));
                     mixin(GenOperator!("Mod", "%"));
+                    case TokenType.Equals - TokenType.OP:
+                        return op1.opEqual(op2);
+                    //mixin(GenOperator!("Cmp", "=="));
                     default:
                 }
                 throw new Exception("What????");

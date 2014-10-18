@@ -3,7 +3,12 @@ import std.conv;
 alias wstring mstring;
 enum ObjectType : byte
 {
-    Void,Object,Int,String,Function
+    Void,
+    Object,
+    Int,
+    Boolean,
+    String,
+    Function
 }
 //size 64bit
 union MObjectUnion
@@ -34,6 +39,8 @@ class MObject__vfptr
     operator opMul;
     operator opDiv;
     operator opMod;
+    operator opEquals;
+    bool function(ref MObject) opBool;
     nativeFunctionType opCall;
     ObjectType type;
     public this(ObjectType type, mstring function(ref MObject) to_s,
@@ -41,7 +48,8 @@ class MObject__vfptr
                 operator opSub = &NoImplFunctionA2,
                 operator opMul = &NoImplFunctionA2,
                 operator opDiv = &NoImplFunctionA2,
-                operator opMod = &NoImplFunctionA2)
+                operator opMod = &NoImplFunctionA2,
+                operator opEquals = &NoImplFunctionA2)
     {
         this.type = type;
         this.toString = to_s;
@@ -50,6 +58,7 @@ class MObject__vfptr
         this.opMul = opMul;
         this.opDiv = opDiv;
         this.opMod = opMod;
+        this.opEquals = opEquals;
     }
     public this(mstring function(ref MObject) to_s, nativeFunctionType opCall)
     {
@@ -62,12 +71,31 @@ class MObject__vfptr
         opCall = nft;
         return this;
     }
+    public static addOpBool(MObject__vfptr that, bool function(ref MObject) opBool)
+    {
+        that.opBool = opBool;
+        return that;
+    }
+    public static addOpEquals(MObject__vfptr that, operator opEquals)
+    {
+        that.opEquals = opEquals;
+        return that;
+    }
 }
 MObject__vfptr vfptrs[ObjectType.max + 1] = [
     ObjectType.Void: new MObject__vfptr(ObjectType.Void, &toStringTypename!"Void"),
     ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
-    ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32),
-    ObjectType.String: new MObject__vfptr(ObjectType.String, &toStringString, &opAddString),
+    ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
+                                       (ref MObject op1, ref MObject op2)=>MObject(op1.value.Int32 == op2.value.Int32)),
+    ObjectType.Boolean: MObject__vfptr.addOpEquals(
+                                                MObject__vfptr.addOpBool(
+                                                                         new MObject__vfptr(ObjectType.Boolean, &toStringBoolean), &opBoolBoolean),
+                                                (ref MObject op1, ref MObject op2)=>MObject(op1.value.Boolean == op2.value.Boolean)
+                                                ),
+    ObjectType.String: MObject__vfptr.addOpEquals(
+                                               new MObject__vfptr(ObjectType.String, &toStringString, &opAddString),
+                                               (ref MObject op1, ref MObject op2)=>MObject(op1.value.String == op2.value.String)
+                                               ),
     ObjectType.Function: new MObject__vfptr(ObjectType.Function, &toStringFunction),
 ];
 struct MObject
@@ -85,6 +113,11 @@ struct MObject
         this.value.Int32 = value;
         this.type = ObjectType.Int;
     }
+    public this(bool value)
+    {
+        this.value.Boolean = value;
+        this.type = ObjectType.Boolean;
+    }
     public this(mstring value)
     {
         this.value.String = value;
@@ -93,6 +126,10 @@ struct MObject
     public mstring toString()
     {
         return vfptrs[type].toString(this);
+    }
+    public bool opBool()
+    {
+        return vfptrs[type].opBool(this);
     }
     public MObject opAdd(ref MObject op1)
     {
@@ -113,6 +150,11 @@ struct MObject
     public MObject opMod(ref MObject op1)
     {
         return vfptrs[type].opMod(this,op1);
+    }
+    //上書きしたらマズイ系
+    public MObject opEqual(ref MObject op1)
+    {
+        return vfptrs[type].opEquals(this,op1);
     }
     public MObject call(Array!MObject op1)
     {
@@ -166,6 +208,14 @@ public MObject opDivInt32(ref MObject op1, ref MObject op2)
 public MObject opModInt32(ref MObject op1, ref MObject op2)
 {
     return MObject(op1.value.Int32 % op2.value.Int32);
+}
+mstring toStringBoolean(ref MObject that)
+{
+    return that.value.Boolean ? "true" : "false";
+}
+bool opBoolBoolean(ref MObject that)
+{
+    return that.value.Boolean;
 }
 mstring toStringString(ref MObject mob)
 {

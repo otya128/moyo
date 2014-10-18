@@ -26,6 +26,8 @@ enum TokenType
     String=0b11,
     RightParenthesis = 0b101,//)
     Comma = 0b110,
+    BlockStart = 0b111,//{
+    BlockEnd = 0b1000,//}
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,
@@ -34,6 +36,7 @@ enum TokenType
     Mod=OP|4,
     Assign = OP | 5,
     LeftParenthesis = OP | 6,//(
+    Equals = OP | 7,//==
 }
 
 /+
