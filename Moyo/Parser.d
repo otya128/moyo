@@ -1,7 +1,7 @@
 module moyo.parser;
 import moyo.tree;
 import moyo.mobject;
-import moyo.moyo;
+import moyo.interpreter;
 import std.stdio;
 import std.stream;
 import std.ascii;
@@ -127,14 +127,25 @@ int rank(TokenType type)
 }
 class Parser
 {
+    static Parser fromFile(string name, Encoding e = Encoding.ASCII)
+    {
+        return new Parser(new std.stream.File(name, FileMode.In), e, name);
+    }
+    ///close input stream
+    public void close()
+    {
+        if(closeStream) input.close();
+    }
     Stream input;
     Encoding enc;
     string name;
-    public this(Stream s, Encoding e, string name)
+    bool closeStream;
+    public this(Stream s, Encoding e, string name, bool closeStream = true)
     {
         input = s;
         enc = e;
         this.name = name;
+        this.closeStream = closeStream;
     }
     void to_s(Tree tr)
     {
@@ -185,8 +196,25 @@ class Parser
             case NodeType.ExpressionStatement:
                 to_s((cast(ExpressionStatement)tr).expression);
                 break;
+            case NodeType.DefineVariable:
+                DefineVariable dv = cast(DefineVariable)tr;
+                writef("{NodeType:%s,", tr);
+                for(int i = 0;i < dv.variables.length; i++)
+                {
+                    write('[');
+                    to_s(dv.variables[i]);
+                    write(',');
+                    to_s(dv.initExpressions[i]);
+                    write(']');
+                    if(i < dv.variables.length - 1)
+                    {
+                        write(',');
+                    }
+                }
+                write('}');
+                break;
             default:
-                
+
         }
         stdout.flush();
     }
@@ -198,7 +226,8 @@ class Parser
         //Tree tree = expression(tl, exp);
         ERROR();
         global.initGlobal();
-        auto moyo = new Moyo(&global);
+        global.global = &global;
+        auto moyo = new Interpreter(&global);
         //to_s(exp);
         auto ret = moyo.Eval(exp);
         return ret;
@@ -227,7 +256,7 @@ class Parser
         }
     }
     /**
-        parse input stream
+    parse input stream
     */
     public void Parse()
     {
@@ -242,9 +271,10 @@ class Parser
         ERROR();
         //Tree tree = expression(tl, exp);
         global.initGlobal();
-        auto moyo = new Moyo(&global);
+        global.global = &global;
+        auto moyo = new Interpreter(&global);
         writeln();
-        auto ret = moyo.Eval(exp);
+        auto ret = moyo.runStatements(exp);
         writeln();
         writeln(ret);
     }
@@ -253,13 +283,55 @@ class Parser
 		Statements statements = new Statements();
 		while(tl)
 		{
+            if(tl.type == TokenType.Iden)
+            {
+                if(tl.next && tl.next.type == TokenType.Iden)
+                {
+                    //DefineVariable
+                    statements.statements.insertBack(parseDefineVariable(tl));
+                    continue;
+                }
+                switch(tl.name)
+                {
+                    case "if":
+                        tl = tl.next;
+                    continue;
+                    default:
+                }
+            }
 			if(tl.type.isExpression())
 			{
 				statements.statements.insertBack(new ExpressionStatement(parseExpression(tl)));
+                continue;
 			}
 			if(tl)tl = tl.next;
 		}
 		return statements;
+    }
+    DefineVariable parseDefineVariable(ref TokenList tl)
+    {
+        DefineVariable dv = new DefineVariable(tl.name);
+        tl = tl.next;
+        while(tl)
+        {
+            if(tl.type != TokenType.Iden) break;
+            mstring variablename = tl.name;
+            if(tl)tl = tl.next;
+            Expression initexp;
+            if(tl.type == TokenType.Assign)
+            {
+                tl = tl.next;
+                initexp = parseExpression(tl);
+            }
+            dv.add(variablename, initexp);
+            if(tl.type == TokenType.Comma)
+            {
+                if(tl)tl = tl.next;
+                continue;
+            }
+            break;
+        }
+        return dv;
     }
     public Expression expression(ref TokenList tl)
     {
@@ -272,10 +344,12 @@ class Parser
         Expression tree;
         switch(tl.type)
         {
+            case TokenType.String:
             case TokenType.Number:
                 cons = new Constant();
                 cons.value = tl.constant;
                 tree = cons;
+                cons.valueType = tl.constant.Type;
                 break;
             case TokenType.LeftParenthesis:
                 auto tk = tl.next;
@@ -286,7 +360,7 @@ class Parser
                 return new Variable(tl.name);
                 break;
             default:
-                Error(new ParseError("Syntax Error(Expression)", tl));
+                //Error(new ParseError("Syntax Error(Expression)", tl));
                 return null;
         }
         return tree;
@@ -309,7 +383,7 @@ class Parser
                 return op1;
             }
             Error(new ParseError("Syntax Error(Operator)", tl));
-            return null;
+            return op1;
         }
         Expression bo = new BinaryOperator(op1, null, tl.type);
         if(expression2(tl, bo)) return bo;
@@ -341,12 +415,12 @@ class Parser
         BinaryOperator bo = cast(BinaryOperator)tr;
         if(bo.type == TokenType.LeftParenthesis)
         {
-            parseFunction(tl, tr);
+            parseFunctionCall(tl, tr);
             return true;
         }
         return false;
     }
-    auto parseFunction(ref TokenList tl, ref Expression tr)
+    auto parseFunctionCall(ref TokenList tl, ref Expression tr)
     {
         BinaryOperator bo = cast(BinaryOperator)tr;
         auto func = new FunctionArgs();
@@ -388,7 +462,8 @@ class Parser
                 bo.OP2 = op1;
                 return;
             }
-            Error(new ParseError("Syntax Error(Operator): " ~ tl.type.to!string, tl));
+            //   Error(new ParseError("Syntax Error(Operator): " ~ tl.type.to!string, tl));
+            bo.OP2 = op1;
             return;//throw new ParseException("Syntax Error(Operator)", tl);
         }
         if(expression2(tl, tr))
@@ -401,7 +476,7 @@ class Parser
             bo.OP2 = op1;
             tr = bo;
             return;
-           // bo.OP1 = ;
+            // bo.OP1 = ;
             bo = new BinaryOperator(null, null, tl.type);
             bo.OP1 = bino;
             tr = bo;
@@ -436,6 +511,7 @@ class Parser
         Iden,
         Number,
         String,
+        EscapeString,
         InvalidChar,
     }
     Array!ParseError errors;
@@ -443,6 +519,9 @@ class Parser
     {
         errors.insertBack(pe);
     }
+    /**
+    lexical analyzer
+    */
     public TokenList Lex()
     {
         TokenList tl = null;
@@ -467,6 +546,7 @@ class Parser
             } 
             else tl.next = t;
             tl = t;
+            t.linepos = linepos - length;
             t.position = position - length + 1;
             t.length = 1;
             t.type = tt;
@@ -487,6 +567,23 @@ class Parser
             t.linepos = linepos - length;
             t.type = tt;
             t.name = iden;
+        }
+        void AddListString(TokenType tt, int length, mstring str)
+        {
+            auto t = new TokenList();
+            if(tl is null)
+            {
+                tl = t;
+                front = t;
+            }
+            else tl.next = t;
+            tl = t;
+            t.position = position - length + 1;
+            t.length = 1;
+            t.linepos = linepos - length;
+            t.type = tt;
+            t.name = str;
+            t.constant = MObject(str);
         }
         bool isStartIden(wchar c)
         {
@@ -545,13 +642,17 @@ class Parser
                             break;
                         case '=':
                             AddList(TokenType.Assign);
+                            break;
                         case ',':
                             AddList(TokenType.Comma);
                             break;
                         case '\n':
                             line++;
                             linepos = -1;
-                        break;
+                            break;
+                        case '"':
+                            ps = ParserStat.String;
+                            break;
                         case ' ':
                         case '\r':
                         case '\t':
@@ -615,6 +716,57 @@ class Parser
                         goto case ParserStat.None;
                     }
                     break;
+                case ParserStat.EscapeString:
+                    wchar esc;
+                    switch(inchar)
+                    {
+                        case 't':
+                            esc = '\t';
+                            break;
+                        case 'n':
+                            esc = '\n';
+                            break;
+                        case 'r':
+                            esc = '\r';
+                            break;
+                        case '"':
+                            esc = '\"';
+                            break;
+                        default:
+                            esc = inchar;
+                            Error(new ParseError("Invalid escape char", line,position,1,linepos));
+                            break;
+                    }
+                    ms.write(esc);
+                    len++;
+                    ps = ParserStat.String;
+                    break;
+                case ParserStat.String:
+                    if(inchar != '"')
+                    {
+                        if(inchar == '\\')
+                        {
+                            ps = ParserStat.EscapeString;
+                            continue;
+                        }
+                        ms.write(inchar);
+                        len++;
+                    }
+                    else
+                    {
+                        mstring wstr = new mstring(len);
+                        ms.position = 0;
+                        for(int i = 0;i<len;i++)
+                        {
+                            wchar buf;
+                            ms.read(wstr[i]);
+                        }
+                        ms.position = 0;
+                        AddListString(TokenType.String, len, wstr);
+                        ps = ParserStat.None;
+                        len = 0;
+                    }
+                    break;
                 case ParserStat.InvalidChar:
                     if(isIgnore(inchar))
                     {
@@ -627,7 +779,7 @@ class Parser
             }
             linepos++;
             if(isLast)break;
-//            write(inchar);
+            //            write(inchar);
             position++;
         }
         return front;

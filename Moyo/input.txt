@@ -1,0 +1,4 @@
+var a=1+1,b=2*2
+print("variable: a" + a + "\n")
+print("variable: b" + b + "\n")
+print("\"Hello, World!\"" + ("\n"))

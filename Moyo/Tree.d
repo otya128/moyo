@@ -3,6 +3,7 @@ Define syntax tree
 */
 module moyo.tree;
 import moyo.mobject;
+import std.container;
 enum NodeType
 {
     Node,
@@ -12,6 +13,10 @@ enum NodeType
     FunctionArgs,
     Statements,
     ExpressionStatement,
+    DefineVariable,
+    For,
+    If,
+    Return,
 }
 enum TokenType
 {
@@ -61,6 +66,9 @@ enum TokenType
 abstract class Tree
 {
     public @property NodeType Type(){return NodeType.Node;}
+}
+class XmasTree : Tree
+{
 }
 abstract class Expression : Tree
 {
@@ -113,9 +121,40 @@ class ExpressionStatement : Statement
 }
 class Statements : Tree
 {
-	import std.container;
     public override @property NodeType Type(){return NodeType.Statements;}
     Array!Statement statements;
+}
+///type-name variable-name[=expression][, variable-name[=expression]...]
+class DefineVariable : Statement
+{
+    public override @property NodeType Type(){return NodeType.DefineVariable;}
+    public this(mstring name)
+    {
+        typeName = name;
+    }
+    mstring typeName;
+    std.container.Array!Variable variables;
+    Array!Expression initExpressions;
+    public void add(mstring name, Expression exp)
+    {
+        variables.insertBack(new Variable(name));
+        initExpressions.insertBack(exp);
+    }
+}
+///for(statement;expression;expression) expression|{statements}
+class For : Statement
+{
+    public override @property NodeType Type(){return NodeType.For;}
+}
+///if expression expression|{statements} [else expression|{statements}]
+class If : Statement
+{
+    public override @property NodeType Type(){return NodeType.If;}
+}
+///return expression
+class Return : Statement
+{
+    public override @property NodeType Type(){return NodeType.Return;}
 }
 unittest
 {

@@ -1,4 +1,4 @@
-module moyo.moyo;
+module moyo.interpreter;
 import moyo.tree;
 import moyo.mobject;
 import core.exception;
@@ -38,6 +38,7 @@ struct Variables
     }
     MObject[mstring] var;
     Variables* parent = null;
+    Variables* global = null;
     protected MObject parentGet(mstring str)
     {
         if(!parent) throw new VariableUndefinedException(str);
@@ -75,14 +76,52 @@ struct Variables
         var.rehash();
     }
 }
-class Moyo
+class Interpreter
 {
+    this()
+    {
+        auto global = new Variables();
+        global.initGlobal();
+        variable.global = global;
+    }
     this(Variables* parent)
     {
         variable.parent = parent;
     }
     Variables variable;
-    public MObject Eval(Tree tree)
+    void runStatement(Statement statement, ref MObject value)
+    {
+        switch(statement.Type)
+        {
+            case NodeType.ExpressionStatement:
+                value = Eval((cast(ExpressionStatement)statement).expression);
+                break;
+            case NodeType.DefineVariable:
+                auto dv = cast(DefineVariable)statement;
+                int siz = dv.variables.length;
+                MObject mob;
+                for(int i = 0;i < siz;i++)
+                {
+                    mob = Eval(dv.initExpressions[i]);
+                    this.variable.define(dv.variables[i].name, mob);
+                }
+                break;
+            case NodeType.If:
+            case NodeType.For:
+            default:
+                throw new RuntimeException("What");
+        }
+    }
+    public MObject runStatements(Statements statements)
+    {
+        MObject returnValue;
+        foreach(statement; statements.statements)
+        {
+            runStatement(statement, returnValue);
+        }
+        return returnValue;
+    }
+    public MObject Eval(Expression tree)
     {
         switch(tree.Type)
         {

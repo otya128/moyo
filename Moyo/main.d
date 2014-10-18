@@ -1,35 +1,39 @@
 import std.stdio, std.stream;
 import moyo.tree;
 import moyo.parser;
-import moyo.moyo;
+import moyo.interpreter;
 
  int main(string[] argv)
 {
     writeln("Hello D-World!");
     while(true)
     {
-    string line = readln();
-    auto ms = new MemoryStream();
-    ms.writeString(line);
-    ms.position = 0;
-    auto parser = new Parser(ms,Encoding.ASCII, "stdin");
-    try
-    {
-        parser.Parse();
-    }
-    catch(ParseException pe)
-    {
-        writeln(pe.msg);
-    }
-    catch(RuntimeException re)
-    {
-        writeln(re);
-    }
-    catch(Exception e)
-    {
-        writeln(e);
-    }
-    ms.close();
+        string line = readln();
+        auto ms = new MemoryStream();
+        ms.writeString(line);
+        ms.position = 0;
+        try
+        {
+            auto parser = Parser.fromFile("input.txt", Encoding.ASCII);//new Parser(ms,Encoding.ASCII, "stdin");
+            scope(exit)
+            {
+                parser.close();
+            }
+            parser.Parse();
+        }
+        catch(ParseException pe)
+        {
+            writeln(pe.msg);
+        }
+        catch(RuntimeException re)
+        {
+            writeln(re);
+        }
+        catch(Exception e)
+        {
+            writeln(e);
+        }
+        ms.close();
     }
     writeln("End D-World...");
     readln();

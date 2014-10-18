@@ -3,7 +3,7 @@ import std.conv;
 alias wstring mstring;
 enum ObjectType : byte
 {
-    Void,Object,Int,Function
+    Void,Object,Int,String,Function
 }
 //size 64bit
 union MObjectUnion
@@ -67,6 +67,7 @@ MObject__vfptr vfptrs[ObjectType.max + 1] = [
     ObjectType.Void: new MObject__vfptr(ObjectType.Void, &toStringTypename!"Void"),
     ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
     ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32),
+    ObjectType.String: new MObject__vfptr(ObjectType.String, &toStringString, &opAddString),
     ObjectType.Function: new MObject__vfptr(ObjectType.Function, &toStringFunction),
 ];
 struct MObject
@@ -83,6 +84,11 @@ struct MObject
     {
         this.value.Int32 = value;
         this.type = ObjectType.Int;
+    }
+    public this(mstring value)
+    {
+        this.value.String = value;
+        this.type = ObjectType.String;
     }
     public mstring toString()
     {
@@ -160,6 +166,14 @@ public MObject opDivInt32(ref MObject op1, ref MObject op2)
 public MObject opModInt32(ref MObject op1, ref MObject op2)
 {
     return MObject(op1.value.Int32 % op2.value.Int32);
+}
+mstring toStringString(ref MObject mob)
+{
+    return mob.value.String;
+}
+MObject opAddString(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.String ~ op2.toString());
 }
 import std.container;
 abstract class Function
