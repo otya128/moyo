@@ -40,6 +40,11 @@ class MObject__vfptr
     operator opDiv;
     operator opMod;
     operator opEquals;
+    operator opNotEquals;
+    operator opLess;
+    operator opGreater;
+    operator opLessOrEqual;
+    operator opGreaterOrEqual;
     bool function(ref MObject) opBool;
     nativeFunctionType opCall;
     ObjectType type;
@@ -49,7 +54,12 @@ class MObject__vfptr
                 operator opMul = &NoImplFunctionA2,
                 operator opDiv = &NoImplFunctionA2,
                 operator opMod = &NoImplFunctionA2,
-                operator opEquals = &NoImplFunctionA2)
+                operator opEquals = &NoImplFunctionA2,
+                operator opNotEquals = &NoImplFunctionA2,
+                operator opLess = &NoImplFunctionA2,
+                operator opGreater = &NoImplFunctionA2,
+                operator opLessOrEqual = &NoImplFunctionA2,
+                operator opGreaterOrEqual = &NoImplFunctionA2)
     {
         this.type = type;
         this.toString = to_s;
@@ -59,6 +69,11 @@ class MObject__vfptr
         this.opDiv = opDiv;
         this.opMod = opMod;
         this.opEquals = opEquals;
+        this.opNotEquals = opNotEquals;
+        this.opLess = opLess;
+        this.opGreater = opGreater;
+        this.opLessOrEqual = opLessOrEqual;
+        this.opGreaterOrEqual = opGreaterOrEqual;
     }
     public this(mstring function(ref MObject) to_s, nativeFunctionType opCall)
     {
@@ -87,7 +102,8 @@ MObject__vfptr vfptrs[ObjectType.max + 1] = [
     ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
     ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
                                        (ref MObject op1, ref MObject op2)=>
-                                       MObject(op1.value.Int32 == op2.value.Int32)),
+                                       MObject(op1.value.Int32 == op2.value.Int32),
+                                       &opNotEqualInt32, &opLessInt32, &opGreaterInt32, &opLessOrEqualInt32, &opGreaterOrEqualInt32),
     ObjectType.Boolean: MObject__vfptr.addOpEquals(
                                                 MObject__vfptr.addOpBool(
                                                                          new MObject__vfptr(ObjectType.Boolean, &toStringBoolean), &opBoolBoolean),
@@ -161,6 +177,26 @@ struct MObject
     {
         return MObject();
     }
+    public MObject opNotEqual(ref MObject op1)
+    {
+        return vfptrs[type].opNotEquals(this, op1);
+    }
+    public MObject opLess(ref MObject op1)
+    {
+        return vfptrs[type].opLess(this, op1);
+    }
+    public MObject opGreater(ref MObject op1)
+    {
+        return vfptrs[type].opGreater(this, op1);
+    }
+    public MObject opLessOrEqual(ref MObject op1)
+    {
+        return vfptrs[type].opLessOrEqual(this, op1);
+    }
+    public MObject opGreaterOrEqual(ref MObject op1)
+    {
+        return vfptrs[type].opGreaterOrEqual(this, op1);
+    }
 }
 MObject Void = MObject();
 public int getInt32(ref MObject mobject)
@@ -210,6 +246,26 @@ public MObject opModInt32(ref MObject op1, ref MObject op2)
 {
     return MObject(op1.value.Int32 % op2.value.Int32);
 }
+public MObject opNotEqualInt32(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.Int32 != op2.value.Int32);
+}
+public MObject opLessInt32(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.Int32 < op2.value.Int32);
+}
+public MObject opGreaterInt32(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.Int32 > op2.value.Int32);
+}
+public MObject opLessOrEqualInt32(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.Int32 <= op2.value.Int32);
+}
+public MObject opGreaterOrEqualInt32(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.Int32 >= op2.value.Int32);
+}
 mstring toStringBoolean(ref MObject that)
 {
     return that.value.Boolean ? "true" : "false";
@@ -225,6 +281,14 @@ mstring toStringString(ref MObject mob)
 MObject opAddString(ref MObject op1, ref MObject op2)
 {
     return MObject(op1.value.String ~ op2.toString());
+}
+public MObject opEqualString(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.String != op2.value.String);
+}
+public MObject opNotEqualString(ref MObject op1, ref MObject op2)
+{
+    return MObject(op1.value.String != op2.value.String);
 }
 import std.container;
 abstract class Function

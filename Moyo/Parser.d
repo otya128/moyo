@@ -323,7 +323,8 @@ class Parser
         global.global = &global;
         auto moyo = new Interpreter(&global);
         writeln();
-        auto ret = moyo.runStatements(exp);
+        MObject ret;
+        moyo.runStatement(exp, ret);
         writeln();
         writeln(ret);
     }
@@ -344,7 +345,7 @@ class Parser
                     return parseFor(tl);
                 case Reserved.None:
                 default:
-                    if(tl.next && tl.next.type == TokenType.Iden)
+                    if(tl.type == TokenType.Iden && tl.next && tl.next.type == TokenType.Iden)
                     {
                         //DefineVariable
                         return parseDefineVariable(tl);
@@ -355,6 +356,7 @@ class Parser
         {
             return new ExpressionStatement(parseExpression(tl));
         }
+        tl = tl.next;
         Error(new ParseError("Invalid Statement", tl));
         return null;
     }
@@ -419,6 +421,7 @@ class Parser
         {
             Error(new ParseError("forの後には括弧が必要です。", tl));
         }
+        tl = tl.next;
         //空白文だったら飛ばす
         Statement _1 = tl.type == TokenType.Semicolon ? null : parseStatement(tl);
         
@@ -776,6 +779,39 @@ class Parser
                                 AddList(TokenType.Assign);
                                 inchar = nextchar;
                                 goto case_ParserStat_None;
+                            }
+                            break;
+                        case '<':
+                            wchar nextchar = next();
+                            if(nextchar == '=')
+                                AddList(TokenType.LessOrEqual);
+                            else
+                            {
+                                AddList(TokenType.Less);
+                                inchar = nextchar;
+                                goto case_ParserStat_None;
+                            }
+                            break;
+                        case '>':
+                            wchar nextchar = next();
+                            if(nextchar == '=')
+                                AddList(TokenType.Greater);
+                            else
+                            {
+                                AddList(TokenType.GreaterOrEqual);
+                                inchar = nextchar;
+                                goto case_ParserStat_None;
+                            }
+                            break;
+                        case '!':
+                            wchar nextchar = next();
+                            if(nextchar == '=')
+                                AddList(TokenType.NotEquals);
+                            else
+                            {
+                                //AddList(TokenType.Assign);
+                                //inchar = nextchar;
+                                //goto case_ParserStat_None;
                             }
                             break;
                         case ',':

@@ -12,6 +12,18 @@ template GenOperator(string type, string op)
         "case TokenType." ~ type ~ " - TokenType.OP:" ~  
         "return op1" ~ op ~ "op2;";
 }
+template GenOperatorFunction(TokenType type, string op)
+{
+    const char[] GenOperatorFunction =
+        "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
+        "return op1.op" ~ op ~ "(op2);";
+}
+template GenOperatorFunction(TokenType type)
+{
+    const char[] GenOperatorFunction =
+        "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
+        "return op1.op" ~ type.to!(const char[]) ~ "(op2);";
+}
 class RuntimeException : Exception
 {
     this(wstring msg)
@@ -96,6 +108,7 @@ class Interpreter
     Variables variable;
     void runStatement(Statement statement, ref MObject value)
     {
+        if(!statement) return;
         switch(statement.Type)
         {
             case NodeType.ExpressionStatement:
@@ -117,30 +130,57 @@ class Interpreter
                 cond = Eval(statementIf.condition);
                 if(cond.opBool)
                 {
-                    runStatement(statementIf.thenStatement, value);
+                    auto interpreter = new Interpreter(this);
+                    interpreter.runStatement(statementIf.thenStatement, value);
                 }
                 else
                 {
-                    if(statementIf.elseStatement)runStatement(statementIf.elseStatement, value);
+                    if(statementIf.elseStatement)
+                    {
+                        auto interpreter = new Interpreter(this);
+                        interpreter.runStatement(statementIf.elseStatement, value);
+                    }
                 }
                 break;
             case NodeType.Statements:
-                auto interpreter = new Interpreter(this);
-                value = runStatements(cast(Statements)statement);
+                auto statements = cast(Statements)statement;
+                foreach(s; statements.statements)
+                {
+                    runStatement(s, value);
+                }
                 break;
             case NodeType.For:
+                //for(a;b;c){d}
+                //for(1;2; ){3}
+                //for( ;5;4){6}
+                //for( ;9;8){7}
+                auto statementFor = cast(For)statement;
+                auto interpreter = new Interpreter(this);
+                interpreter.runStatement(statementFor.initStatement, value);
+                bool infloop;
+                if(!statementFor.condition)
+                {
+                    infloop = true;
+                }
+                else
+                {
+                    //条件式がfalseなら
+                    if(!interpreter.Eval(statementFor.condition).opBool())
+                        break;//おしまい
+                }
+                while(true)
+                {
+                    interpreter.runStatement(statementFor.statement, value);
+                    if(infloop) continue;
+                    interpreter.Eval(statementFor.loop);
+                    //条件式がfalseなら
+                    if(!interpreter.Eval(statementFor.condition).opBool())
+                        break;//おしまい
+                }
+                break;
             default:
                 throw new RuntimeException("What");
         }
-    }
-    public MObject runStatements(Statements statements)
-    {
-        MObject returnValue;
-        foreach(statement; statements.statements)
-        {
-            runStatement(statement, returnValue);
-        }
-        return returnValue;
     }
     public MObject Eval(Expression tree)
     {
@@ -187,8 +227,13 @@ class Interpreter
                     mixin(GenOperator!("Mul", "*"));
                     mixin(GenOperator!("Div", "/"));
                     mixin(GenOperator!("Mod", "%"));
-                    case TokenType.Equals - TokenType.OP:
-                        return op1.opEqual(op2);
+                    mixin(GenOperatorFunction!(TokenType.Equals, "Equal"));
+                    //IDE補完が効いて楽
+                    mixin(GenOperatorFunction!(TokenType.NotEquals, "NotEqual"));
+                    mixin(GenOperatorFunction!(TokenType.Less));
+                    mixin(GenOperatorFunction!(TokenType.Greater));
+                    mixin(GenOperatorFunction!(TokenType.LessOrEqual));
+                    mixin(GenOperatorFunction!(TokenType.GreaterOrEqual));
                     //mixin(GenOperator!("Cmp", "=="));
                     default:
                 }

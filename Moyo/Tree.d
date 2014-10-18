@@ -38,6 +38,11 @@ enum TokenType
     Assign = OP | 5,
     LeftParenthesis = OP | 6,//(
     Equals = OP | 7,//==
+    NotEquals,
+    Less,
+    Greater,
+    LessOrEqual,
+    GreaterOrEqual,
 }
 
 /+
