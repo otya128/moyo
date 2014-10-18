@@ -107,6 +107,14 @@ class Interpreter
                 }
                 break;
             case NodeType.If:
+                auto statementIf = cast(If)statement;
+                MObject cond;
+                cond = Eval(statementIf.condition);
+                if(cond.value.Int32)
+                {
+                    runStatement(statementIf.thenStatement, value);
+                }
+                break;
             case NodeType.For:
             default:
                 throw new RuntimeException("What");

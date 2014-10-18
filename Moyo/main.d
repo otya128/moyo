@@ -47,24 +47,25 @@ MObject testFunc(argsType args)
 {
     return args[args.length - 1];
 }
+
+void test(string val, int result)
+{
+    auto ms = new MemoryStream();
+    ms.writeString(val);
+    ms.position = 0;
+    auto parser = new Parser(ms,Encoding.ASCII, "unittest");
+    try
+    {
+        assert(parser.ParseAndEval().value.Int32 == result);
+    }
+    catch(Exception e)
+    {
+        assert(false, e.toString());
+    }
+    ms.close();
+}
 unittest
 {
-    void test(string val, int result)
-    {
-        auto ms = new MemoryStream();
-        ms.writeString(val);
-        ms.position = 0;
-        auto parser = new Parser(ms,Encoding.ASCII, "unittest");
-        try
-        {
-            assert(parser.ParseAndEval().value.Int32 == result);
-        }
-        catch(Exception e)
-        {
-            assert(false, e.toString());
-        }
-        ms.close();
-    }
     auto testFunction = MObject(new NativeFunction(&testFunc, "test"));
     struct Eval
     {
@@ -100,14 +101,15 @@ unittest
     Eval("2+3*4*5") = 2+3*4*5;
     Eval("(2+3)*4*5") = (2+3)*4*5;
     Eval("(1)+(2)") = (1)+(2);
-    mixin(Test!"2+(3+4)*5"());
-    mixin(Test!"2+20/5*3"());
+    Test!"2+(3+4)*5"();
+    Test!"2+20/5*3"();
     Eval("test(2+5)") = 2+5;
     Eval("test(2+5, test(2, 3+5))") = 3+5;
+    Test!"2-3*4-5"();
     writeln("Test");
 }
 //D言語の式の評価結果と同じか検証
-char[] Test(const char[] V)()
+void Test(const char[] V)()
 {
-    return "test(\""~V~"\", "~V~");";
+    mixin("test(\""~V~"\", "~V~");");
 }

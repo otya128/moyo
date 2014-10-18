@@ -65,9 +65,9 @@ enum TokenType
 //
 abstract class Tree
 {
-    public @property NodeType Type(){return NodeType.Node;}
+    public @property NodeType Type();
 }
-class XmasTree : Tree
+abstract class XmasTree : Tree
 {
 }
 abstract class Expression : Tree
@@ -119,7 +119,7 @@ class ExpressionStatement : Statement
     }
 	Expression expression;
 }
-class Statements : Tree
+class Statements : Statement
 {
     public override @property NodeType Type(){return NodeType.Statements;}
     Array!Statement statements;
@@ -141,15 +141,18 @@ class DefineVariable : Statement
         initExpressions.insertBack(exp);
     }
 }
-///for(statement;expression;expression) expression|{statements}
+///for(statement;expression;expression) statement|{statements}
 class For : Statement
 {
     public override @property NodeType Type(){return NodeType.For;}
 }
-///if expression expression|{statements} [else expression|{statements}]
+///if expression statement|{statements} [else statement|{statements}]
 class If : Statement
 {
     public override @property NodeType Type(){return NodeType.If;}
+    Expression condition;
+    Statement thenStatement;
+    Statement elseStatement;
 }
 ///return expression
 class Return : Statement

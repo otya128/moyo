@@ -198,7 +198,7 @@ class Parser
                 break;
             case NodeType.DefineVariable:
                 DefineVariable dv = cast(DefineVariable)tr;
-                writef("{NodeType:%s,", tr);
+                writef("{NodeType:DefineVariable,");
                 for(int i = 0;i < dv.variables.length; i++)
                 {
                     write('[');
@@ -211,6 +211,18 @@ class Parser
                         write(',');
                     }
                 }
+                write('}');
+                break;
+            case NodeType.If:
+                auto statementIf = cast(If)tr;
+                writef("{NodeType:If,");
+                write('[');
+                to_s(statementIf.condition);
+                write(',');
+                to_s(statementIf.thenStatement);
+                write(',');
+                to_s(statementIf.elseStatement);
+                write(']');
                 write('}');
                 break;
             default:
@@ -278,33 +290,35 @@ class Parser
         writeln();
         writeln(ret);
     }
+    Statement parseStatement(ref TokenList tl)
+    {
+        if(tl.type == TokenType.Iden)
+        {
+            if(tl.next && tl.next.type == TokenType.Iden)
+            {
+                //DefineVariable
+                return parseDefineVariable(tl);
+            }
+            switch(tl.name)
+            {
+                case "if":
+                    return parseIf(tl);
+                default:
+            }
+        }
+        if(tl.type.isExpression())
+        {
+            return new ExpressionStatement(parseExpression(tl));
+        }
+        Error(new ParseError("Invalid Statement", tl));
+        return null;
+    }
     Statements parseStatements(ref TokenList tl)
     {
 		Statements statements = new Statements();
 		while(tl)
 		{
-            if(tl.type == TokenType.Iden)
-            {
-                if(tl.next && tl.next.type == TokenType.Iden)
-                {
-                    //DefineVariable
-                    statements.statements.insertBack(parseDefineVariable(tl));
-                    continue;
-                }
-                switch(tl.name)
-                {
-                    case "if":
-                        tl = tl.next;
-                    continue;
-                    default:
-                }
-            }
-			if(tl.type.isExpression())
-			{
-				statements.statements.insertBack(new ExpressionStatement(parseExpression(tl)));
-                continue;
-			}
-			if(tl)tl = tl.next;
+            statements.statements.insertBack(parseStatement(tl));
 		}
 		return statements;
     }
@@ -329,9 +343,18 @@ class Parser
                 if(tl)tl = tl.next;
                 continue;
             }
+            
             break;
         }
         return dv;
+    }
+    If parseIf(ref TokenList tl)
+    {
+        auto statementIf = new If();
+        tl = tl.next;
+        statementIf.condition = parseExpression(tl);
+        statementIf.thenStatement = parseStatement(tl);
+        return statementIf;
     }
     public Expression expression(ref TokenList tl)
     {
@@ -382,7 +405,7 @@ class Parser
             {
                 return op1;
             }
-            Error(new ParseError("Syntax Error(Operator)", tl));
+            //Error(new ParseError("Syntax Error(Operator)", tl));
             return op1;
         }
         Expression bo = new BinaryOperator(op1, null, tl.type);
