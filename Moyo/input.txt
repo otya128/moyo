@@ -1,5 +1,19 @@
-var a=1+1,b=2*2
-if(a==1)print("a==1")else print("a!=1")
+var a=1+1,b=2*2,if=1+2-1
+{
+	print("Statements\n")
+}
+if(a==if)
+{
+	print("a==1\n")
+}
+else
+{
+	print("a!=1\n")
+}
+for(var i=0;1+2;3+4)
+{
+	print("" + i + "\n")
+}
 print("variable: a" + a + "\n")
 print("variable: b" + b + "\n")
 print("\"Hello, World!\"" + ("\n"))

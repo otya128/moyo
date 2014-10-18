@@ -28,6 +28,7 @@ enum TokenType
     Comma = 0b110,
     BlockStart = 0b111,//{
     BlockEnd = 0b1000,//}
+    Semicolon = 0b1001,//;
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,
@@ -148,6 +149,10 @@ class DefineVariable : Statement
 class For : Statement
 {
     public override @property NodeType Type(){return NodeType.For;}
+    Statement initStatement;
+    Expression condition;
+    Expression loop;
+    Statement statement;
 }
 ///if expression statement|{statements} [else statement|{statements}]
 class If : Statement

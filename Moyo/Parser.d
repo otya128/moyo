@@ -248,6 +248,20 @@ class Parser
                 write(']');
                 write('}');
                 break;
+            case NodeType.For:
+                auto statementFor = cast(For)tr;
+                writef("{NodeType:For,");
+                write('[');
+                to_s(statementFor.initStatement);
+                write(',');
+                to_s(statementFor.condition);
+                write(',');
+                to_s(statementFor.loop);
+                write(',');
+                to_s(statementFor.statement);
+                write(']');
+                write('}');
+                break;
             default:
 
         }
@@ -315,12 +329,19 @@ class Parser
     }
     Statement parseStatement(ref TokenList tl)
     {
+        if(tl.type == TokenType.BlockStart)
+        {
+            tl = tl.next;
+            return parseStatements(tl);
+        }
         if(tl.type == TokenType.Iden)
         {
             switch(tl.reserved)
             {
                 case Reserved.If:
                     return parseIf(tl);
+                case Reserved.For:
+                    return parseFor(tl);
                 case Reserved.None:
                 default:
                     if(tl.next && tl.next.type == TokenType.Iden)
@@ -343,7 +364,12 @@ class Parser
 		while(tl)
 		{
             statements.statements.insertBack(parseStatement(tl));
-		}
+            if(tl && tl.type == TokenType.BlockEnd) 
+            {
+                tl = tl.next;
+                break;
+            }
+        }
 		return statements;
     }
     DefineVariable parseDefineVariable(ref TokenList tl)
@@ -384,6 +410,47 @@ class Parser
             statementIf.elseStatement = parseStatement(tl);
         }
         return statementIf;
+    }
+    For parseFor(ref TokenList tl)
+    {
+        auto statementFor = new For();
+        tl = tl.next;
+        if(tl.type != TokenType.LeftParenthesis)
+        {
+            Error(new ParseError("forの後には括弧が必要です。", tl));
+        }
+        //空白文だったら飛ばす
+        Statement _1 = tl.type == TokenType.Semicolon ? null : parseStatement(tl);
+        
+        if(_1 !is null && _1.Type != NodeType.DefineVariable && _1.Type != NodeType.ExpressionStatement)
+        {
+            Error(new ParseError("forの文には変数宣言か式か空白である必要があります。", tl));
+        }
+        if(tl.type != TokenType.Semicolon)
+        {
+            Error(new ParseError("forの文の後には;を置いてください。", tl));
+        }
+        else
+        tl = tl.next;
+        Expression _2 =  tl.type == TokenType.Semicolon ? null : parseExpression(tl);
+        if(tl.type != TokenType.Semicolon)
+        {
+            Error(new ParseError("forの文の後には;を置いてください。", tl));
+        }
+        else
+            tl = tl.next;
+        Expression _3 =  tl.type == TokenType.RightParenthesis ? null : parseExpression(tl);
+        if(tl.type != TokenType.RightParenthesis)
+        {
+            Error(new ParseError("forの文の後には括弧が必要です。", tl));
+        }
+        else
+            tl = tl.next;
+        statementFor.initStatement = _1;
+        statementFor.condition = _2;
+        statementFor.loop = _3;
+        statementFor.statement = parseStatement(tl);
+        return statementFor;
     }
     public Expression expression(ref TokenList tl)
     {
@@ -730,6 +797,15 @@ class Parser
                             break;
                         case ')':
                             AddList(TokenType.RightParenthesis);
+                            break;
+                        case '{':
+                            AddList(TokenType.BlockStart);
+                            break;
+                        case '}':
+                            AddList(TokenType.BlockEnd);
+                            break;
+                        case ';':
+                            AddList(TokenType.Semicolon);
                             break;
                         default:
                             ps = ParserStat.InvalidChar;

@@ -86,7 +86,8 @@ MObject__vfptr vfptrs[ObjectType.max + 1] = [
     ObjectType.Void: new MObject__vfptr(ObjectType.Void, &toStringTypename!"Void"),
     ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
     ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
-                                       (ref MObject op1, ref MObject op2)=>MObject(op1.value.Int32 == op2.value.Int32)),
+                                       (ref MObject op1, ref MObject op2)=>
+                                       MObject(op1.value.Int32 == op2.value.Int32)),
     ObjectType.Boolean: MObject__vfptr.addOpEquals(
                                                 MObject__vfptr.addOpBool(
                                                                          new MObject__vfptr(ObjectType.Boolean, &toStringBoolean), &opBoolBoolean),

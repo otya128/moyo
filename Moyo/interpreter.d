@@ -88,6 +88,11 @@ class Interpreter
     {
         variable.parent = parent;
     }
+    this(Interpreter parent)
+    {
+        variable.parent = &parent.variable;
+        variable.global = parent.variable.global;
+    }
     Variables variable;
     void runStatement(Statement statement, ref MObject value)
     {
@@ -118,6 +123,10 @@ class Interpreter
                 {
                     if(statementIf.elseStatement)runStatement(statementIf.elseStatement, value);
                 }
+                break;
+            case NodeType.Statements:
+                auto interpreter = new Interpreter(this);
+                value = runStatements(cast(Statements)statement);
                 break;
             case NodeType.For:
             default:
