@@ -17,6 +17,8 @@ enum NodeType
     For,
     If,
     Return,
+    Continue,
+    Break,
 }
 enum TokenType
 {
@@ -171,6 +173,16 @@ class If : Statement
 class Return : Statement
 {
     public override @property NodeType Type(){return NodeType.Return;}
+}
+class Continue : Statement
+{
+    public override @property NodeType Type(){return NodeType.Continue;}
+    Statement continueStatement;
+}
+class Break : Statement
+{
+    public override @property NodeType Type(){return NodeType.Break;}
+    Statement breakStatement;
 }
 unittest
 {

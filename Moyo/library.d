@@ -9,5 +9,6 @@ MObject print(argsType args)
     {
         write(i);
     }
+    stdout.flush();
     return Void;
 }

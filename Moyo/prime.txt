@@ -1,0 +1,20 @@
+for(var n=0;n<1000;n=n+1)
+{
+    if n < 2 continue
+    if n == 2
+    {
+        print(n,",")
+        continue
+    }
+    if(n % 2 == 0) continue
+    var isprime = true
+    for(var i = 3; i <= n / i; i = i + 2)
+    {
+        if n % i == 0
+        {
+            isprime = false
+            break
+        }
+    }
+    if isprime print(n,",")
+}

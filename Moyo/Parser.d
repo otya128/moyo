@@ -30,7 +30,9 @@ enum Reserved : byte
     None,
     If,
     Else,
-    For
+    For,
+    Break,
+    Continue,
 }
 class TokenList
 {
@@ -40,6 +42,8 @@ class TokenList
             "if": Reserved.If,
             "else": Reserved.Else,
             "for": Reserved.For,
+            "break": Reserved.Break,
+            "continue": Reserved.Continue,
         ];
         reservedTable.rehash();
     }
@@ -133,16 +137,25 @@ int AssignRank = 16;
 int rank(TokenType type)
 {
     //テーブル化されやすくなりたい
-    switch(type - TokenType.OP)
+    //面倒だしやめた
+    switch(type)
     {
-        case TokenType.Mul - TokenType.OP:
-        case TokenType.Div - TokenType.OP:
-        case TokenType.Mod - TokenType.OP:
+        case TokenType.Mul:
+        case TokenType.Div:
+        case TokenType.Mod:
             return 5;
-        case TokenType.Plus - TokenType.OP:
-        case TokenType.Minus - TokenType.OP:
+        case TokenType.Plus:
+        case TokenType.Minus:
             return 6;
-        case TokenType.Assign - TokenType.OP:
+        case TokenType.Less:
+        case TokenType.Greater:
+        case TokenType.LessOrEqual:
+        case TokenType.GreaterOrEqual:
+            return 8;
+        case TokenType.Equals:
+        case TokenType.NotEquals:
+            return 9;
+        case TokenType.Assign:
             return 16;
         default:
             throw new ParseException("Invalid Operator: " ~ to!string(type), type);
@@ -343,6 +356,12 @@ class Parser
                     return parseIf(tl);
                 case Reserved.For:
                     return parseFor(tl);
+                case Reserved.Break:
+                    tl = tl.next;
+                    return new Break();
+                case Reserved.Continue:
+                    tl = tl.next;
+                    return new Continue();
                 case Reserved.None:
                 default:
                     if(tl.type == TokenType.Iden && tl.next && tl.next.type == TokenType.Iden)

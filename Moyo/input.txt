@@ -1,3 +1,22 @@
+for(var n=0;n<100;n=n+1)
+{
+    if n < 2 continue
+    if n == 2
+	{
+		print(n,",")
+		continue
+	}
+    if(n % 2 == 0) continue
+	var j = 0
+    for(var i = 1; i <= n; i = i + 1)
+    {
+        if n % i == 0
+		{
+			j=j+1
+		}
+    }
+	if j==2 print(n,",")
+}
 var a=1+1,b=2*2,if=1+2-1
 print("1<2:",1<2,",2<1:",2<1,"\n")
 print("1<=3:",1<=3,",3<=1:",3<=1,"\n")
@@ -17,7 +36,30 @@ else
 for(var i=0;i<10;i=i+1)
 {
 	print("" + i + "\n")
+    if((i%2)==0) continue
+	print("" + i + "\n")
 }
+
 print("variable: a" + a + "\n")
 print("variable: b" + b + "\n")
 print("\"Hello, World!\"" + ("\n"))
+for(var n=0;n<1000;n=n+1)
+{
+    if n < 2 continue
+    if n == 2
+    {
+        print(n,",")
+        continue
+    }
+    if(n % 2 == 0) continue
+    var isprime = true
+    for(var i = 3; i <= n / i; i = i + 2)
+    {
+        if n % i == 0
+        {
+            isprime = false
+            break
+        }
+    }
+    if isprime print(n,",")
+}

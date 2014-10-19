@@ -78,6 +78,11 @@ struct Variables
     }
     public void set(mstring str, ref MObject ret)
     {
+        if(str !in var)
+        {
+            if(!parent) throw new VariableUndefinedException(str);
+            return parent.set(str, ret);
+        }
         var[str] = ret;
     }
     //このスコープをグローバルとして初期化
@@ -85,8 +90,22 @@ struct Variables
     {
         var["print"] = moyo.library.printFunc;
         var["null"] = MObject();
+        var["true"] = MObject(true);
+        var["false"] = MObject(false);
         var.rehash();
     }
+}
+enum BlockType
+{
+    None,
+    For,
+    If,
+}
+enum BlockResult
+{
+    None,
+    Break,
+    Continue,
 }
 class Interpreter
 {
@@ -100,15 +119,16 @@ class Interpreter
     {
         variable.parent = parent;
     }
-    this(Interpreter parent)
+    this(Interpreter parent, BlockType blockkind)
     {
         variable.parent = &parent.variable;
         variable.global = parent.variable.global;
     }
+    BlockType blockType;
     Variables variable;
-    void runStatement(Statement statement, ref MObject value)
+    BlockResult runStatement(Statement statement, ref MObject value)
     {
-        if(!statement) return;
+        if(!statement) return BlockResult.None;
         switch(statement.Type)
         {
             case NodeType.ExpressionStatement:
@@ -128,25 +148,30 @@ class Interpreter
                 auto statementIf = cast(If)statement;
                 MObject cond;
                 cond = Eval(statementIf.condition);
+                BlockResult br;
                 if(cond.opBool)
                 {
-                    auto interpreter = new Interpreter(this);
-                    interpreter.runStatement(statementIf.thenStatement, value);
+                    auto interpreter = new Interpreter(this, BlockType.If);
+                    br = interpreter.runStatement(statementIf.thenStatement, value);
+                    if(br != BlockResult.None) return br;
                 }
                 else
                 {
                     if(statementIf.elseStatement)
                     {
-                        auto interpreter = new Interpreter(this);
-                        interpreter.runStatement(statementIf.elseStatement, value);
+                        auto interpreter = new Interpreter(this, BlockType.If);
+                        br = interpreter.runStatement(statementIf.elseStatement, value);
+                        if(br != BlockResult.None) return br;
                     }
                 }
                 break;
             case NodeType.Statements:
                 auto statements = cast(Statements)statement;
+                BlockResult br;
                 foreach(s; statements.statements)
                 {
-                    runStatement(s, value);
+                    br = runStatement(s, value);
+                    if(br != BlockResult.None) return br;
                 }
                 break;
             case NodeType.For:
@@ -155,7 +180,7 @@ class Interpreter
                 //for( ;5;4){6}
                 //for( ;9;8){7}
                 auto statementFor = cast(For)statement;
-                auto interpreter = new Interpreter(this);
+                auto interpreter = new Interpreter(this, BlockType.For);
                 interpreter.runStatement(statementFor.initStatement, value);
                 bool infloop;
                 if(!statementFor.condition)
@@ -170,7 +195,11 @@ class Interpreter
                 }
                 while(true)
                 {
-                    interpreter.runStatement(statementFor.statement, value);
+                    BlockResult br = interpreter.runStatement(statementFor.statement, value);
+                    if(br == BlockResult.Break)
+                    {
+                        break;
+                    }
                     if(infloop) continue;
                     interpreter.Eval(statementFor.loop);
                     //条件式がfalseなら
@@ -178,9 +207,14 @@ class Interpreter
                         break;//おしまい
                 }
                 break;
+            case NodeType.Break:
+                return BlockResult.Break;
+            case NodeType.Continue:
+                return BlockResult.Continue;
             default:
                 throw new RuntimeException("What");
         }
+        return BlockResult.None;
     }
     public MObject Eval(Expression tree)
     {

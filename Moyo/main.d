@@ -4,7 +4,7 @@ import moyo.parser;
 import moyo.interpreter;
 
  int main(string[] argv)
- {
+{
     writeln("Hello D-World!");
     while(true)
     {
