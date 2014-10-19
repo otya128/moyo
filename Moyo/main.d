@@ -43,7 +43,7 @@ import moyo.interpreter;
 import moyo.mobject;
 import std.container;
 ///return last arg
-MObject testFunc(argsType args)
+MObject testFunc(ArgsType args)
 {
     return args[args.length - 1];
 }

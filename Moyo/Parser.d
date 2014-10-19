@@ -25,6 +25,7 @@ bool isExpression(TokenType tt)
     return tt.isOperator() || tt <= TokenType.String;
 }
 Reserved[mstring] reservedTable;
+//先頭が大文字なのは予約語と衝突を避けるため
 enum Reserved : byte
 {
     None,
@@ -33,6 +34,7 @@ enum Reserved : byte
     For,
     Break,
     Continue,
+    Return,
 }
 class TokenList
 {
@@ -44,6 +46,7 @@ class TokenList
             "for": Reserved.For,
             "break": Reserved.Break,
             "continue": Reserved.Continue,
+            "return": Reserved.Return,
         ];
         reservedTable.rehash();
     }
@@ -275,6 +278,27 @@ class Parser
                 write(']');
                 write('}');
                 break;
+            case NodeType.DefineFunction:
+                auto df = cast(DefineFunction)tr;
+                writef("{NodeType:DefineFunction,");
+                write('[');
+                write(df.type);
+                write(',');
+                write(df.name);
+                write(',');
+                foreach(i; df.args)
+                {
+                    write('[');
+                    write(i.type);
+                    write(',');
+                    write(i.name);
+                    write(']');
+                    write(',');
+                }
+                to_s(df.statement);
+                write(']');
+                write('}');
+                break;
             default:
 
         }
@@ -327,19 +351,92 @@ class Parser
         {
             writefln("\t{constant:%s, type:%s, name:%s},", i.constant, i.type, i.name);
         }
-        auto exp = parseStatements(tl);//parseExpression(tl);//new Expression();
-        to_s(exp);
+        //auto exp = parseStatements(tl);//parseExpression(tl);//new Expression();
+        auto roots = parseGlobal(tl);
+        foreach(exp; roots)
+            to_s(exp);
         writeln();
         ERROR();
         //Tree tree = expression(tl, exp);
         global.initGlobal();
         global.global = &global;
+        foreach(exp; roots)
+        {
+            if(exp.Type == NodeType.DefineFunction)
+            {
+                auto func = cast(DefineFunction)exp;
+                auto munc = MObject(new MFunction(func));
+                global.define(func.name, munc);
+            }
+        }
         auto moyo = new Interpreter(&global);
         writeln();
         MObject ret;
-        moyo.runStatement(exp, ret);
+        foreach(exp; roots)
+        {
+            if(exp.Type != NodeType.DefineFunction)
+                moyo.runStatement(cast(Statement)exp, ret);
+        }
         writeln();
         writeln(ret);
+    }
+    Array!Tree parseGlobal(ref TokenList tl)
+    {
+		Array!Tree nodes;
+		while(tl)
+		{
+            if(tl.type == TokenType.Iden)
+            {
+                switch(tl.reserved)
+                {
+                    case Reserved.None:
+                        if(tl.next && tl.next.type == TokenType.Iden &&
+                           tl.next.next && tl.next.next.type == TokenType.LeftParenthesis)//関数定義 type-name func-name()
+                        {
+                            nodes.insertBack(parseDefineFunction(tl));
+                            continue;
+                        }
+                    default:
+                }
+            }
+            nodes.insertBack(parseStatement(tl));
+            if(tl && tl.type == TokenType.BlockEnd) 
+            {
+                tl = tl.next;
+                Error(new ParseError("予期せぬ'}'", tl));
+                break;
+            }
+        }
+		return nodes;
+    }
+    //ただしstatic/public/privateは無いものとする
+    DefineFunction parseDefineFunction(ref TokenList tl)
+    {
+        auto df = new DefineFunction();
+        df.type = tl.name;
+        tl = tl.next;
+        df.name = tl.name;
+        tl = tl.next;//(
+        tl = tl.next;//type-name1
+        while(tl && tl.type != TokenType.RightParenthesis)
+        {
+            if(tl.next)
+            {
+                df.add(tl.name, tl.next.name);
+                tl = tl.next;
+            }
+            tl = tl.next;
+        }
+        if(tl)tl = tl.next;
+        df.statement = parseStatement(tl);
+        return df;
+    }
+    Return parseReturn(ref TokenList tl)
+    {
+        auto ret = new Return();
+        tl = tl.next;
+        ret.expression = parseExpression(tl);
+        return ret;
     }
     Statement parseStatement(ref TokenList tl)
     {
@@ -362,6 +459,8 @@ class Parser
                 case Reserved.Continue:
                     tl = tl.next;
                     return new Continue();
+                case Reserved.Return:
+                    return parseReturn(tl);
                 case Reserved.None:
                 default:
                     if(tl.type == TokenType.Iden && tl.next && tl.next.type == TokenType.Iden)
@@ -382,6 +481,11 @@ class Parser
     Statements parseStatements(ref TokenList tl)
     {
 		Statements statements = new Statements();
+        if(tl && tl.type == TokenType.BlockEnd) 
+        {
+            tl = tl.next;
+            return statements;
+        }
 		while(tl)
 		{
             statements.statements.insertBack(parseStatement(tl));

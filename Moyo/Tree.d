@@ -19,6 +19,7 @@ enum NodeType
     Return,
     Continue,
     Break,
+    DefineFunction,
 }
 enum TokenType
 {
@@ -173,6 +174,7 @@ class If : Statement
 class Return : Statement
 {
     public override @property NodeType Type(){return NodeType.Return;}
+    Expression expression;
 }
 class Continue : Statement
 {
@@ -183,6 +185,30 @@ class Break : Statement
 {
     public override @property NodeType Type(){return NodeType.Break;}
     Statement breakStatement;
+}
+
+class DefineFunction : Tree
+{
+    public override @property NodeType Type(){return NodeType.DefineFunction;}
+    Statement statement;
+    mstring type;
+    mstring name;
+    //未解決の型
+    struct VariablePair
+    {
+        this(mstring type, mstring name)
+        {
+            this.type = type;
+            this.name = name;
+        }
+        mstring type;
+        mstring name;
+    }
+    Array!VariablePair args;
+    auto add(mstring type, mstring name)
+    {
+        args.insertBack(VariablePair(type, name));
+    }
 }
 unittest
 {

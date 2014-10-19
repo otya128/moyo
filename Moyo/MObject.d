@@ -1,5 +1,6 @@
 module moyo.mobject;
 import std.conv;
+import moyo.interpreter;
 alias wstring mstring;
 enum ObjectType : byte
 {
@@ -46,7 +47,7 @@ class MObject__vfptr
     operator opLessOrEqual;
     operator opGreaterOrEqual;
     bool function(ref MObject) opBool;
-    nativeFunctionType opCall;
+    MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall;
     ObjectType type;
     public this(ObjectType type, mstring function(ref MObject) to_s,
                 operator opAdd = &NoImplFunctionA2,
@@ -75,16 +76,12 @@ class MObject__vfptr
         this.opLessOrEqual = opLessOrEqual;
         this.opGreaterOrEqual = opGreaterOrEqual;
     }
-    public this(mstring function(ref MObject) to_s, nativeFunctionType opCall)
+    
+    public this(mstring function(ref MObject) to_s, MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall)
     {
         this.type = ObjectType.Function;
         this.toString = to_s;
         this.opCall = opCall;
-    }
-    public MObject__vfptr addOpCall(nativeFunctionType nft)
-    {
-        opCall = nft;
-        return this;
     }
     public static addOpBool(MObject__vfptr that, bool function(ref MObject) opBool)
     {
@@ -113,7 +110,7 @@ MObject__vfptr vfptrs[ObjectType.max + 1] = [
                                                new MObject__vfptr(ObjectType.String, &toStringString, &opAddString),
                                                (ref MObject op1, ref MObject op2)=>MObject(op1.value.String == op2.value.String)
                                                ),
-    ObjectType.Function: new MObject__vfptr(ObjectType.Function, &toStringFunction),
+    ObjectType.Function: new MObject__vfptr(&toStringFunction, &Function.opCallFunction),
 ];
 struct MObject
 {
@@ -173,9 +170,9 @@ struct MObject
     {
         return vfptrs[type].opEquals(this,op1);
     }
-    public MObject call(Array!MObject op1)
+    public MObject call(ArgsType args, Interpreter parent)
     {
-        return MObject();
+        return vfptrs[type].opCall(this, args, parent);
     }
     public MObject opNotEqual(ref MObject op1)
     {
@@ -294,11 +291,15 @@ import std.container;
 abstract class Function
 {
     @property mstring name();
-    MObject opCall(Array!MObject args);
+    MObject opCall(ArgsType args, Interpreter parent);
     mstring toMString();
+    static MObject opCallFunction(ref MObject op1, ArgsType args, Interpreter parent)
+    {
+        return op1.value.Func(args, parent);
+    }
 }
-alias Array!MObject argsType;
-alias nativeFunctionType = MObject function(argsType);
+alias Array!MObject ArgsType;
+alias nativeFunctionType = MObject function(ArgsType);
 mstring toStringFunction(ref MObject mob)
 {
     return mob.value.Func.toMString();
@@ -316,7 +317,7 @@ class NativeFunction : Function
     {
         return _name;
     }
-    override MObject opCall(Array!MObject args)
+    override MObject opCall(ArgsType args, Interpreter parent)
     {
         return func(args);
     }
@@ -324,6 +325,39 @@ class NativeFunction : Function
     override mstring toMString()
     {
         return tom ? tom : tom = ("function(native): " ~ _name);//記録しておく
+    }
+}
+class MFunction : Function
+{
+    import moyo.tree;
+    DefineFunction tree;
+    this(DefineFunction df)
+    {
+        this.tree = df;
+    }
+    @property override mstring name()
+    {
+        return tree.name;
+    }
+    mstring tom = null;
+    override mstring toMString()
+    {
+        return tom ? tom : tom = ("function: " ~ tree.name);//記録しておく
+    }
+    override MObject opCall(ArgsType args, Interpreter parent)
+    {
+        auto intp = new Interpreter(parent.variable.global);
+        MObject ret;
+        if(args.length != tree.args.length)
+        {
+            throw new RuntimeException("argument: " ~ toMString);
+        }
+        for(int i = 0;i < args.length;i++)
+        {
+            intp.variable.define(tree.args[i].name, args[i]);
+        }
+        intp.runStatement(this.tree.statement, ret);
+        return ret;
     }
 }
 /*

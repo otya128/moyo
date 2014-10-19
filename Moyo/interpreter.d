@@ -76,6 +76,10 @@ struct Variables
     {
         var[str] = ret;
     }
+    public void define(mstring str, MObject ret)
+    {
+        var[str] = ret;
+    }
     public void set(mstring str, ref MObject ret)
     {
         if(str !in var)
@@ -101,11 +105,12 @@ enum BlockType
     For,
     If,
 }
-enum BlockResult
+enum ResultType
 {
     None,
     Break,
     Continue,
+    Return,
 }
 class Interpreter
 {
@@ -118,6 +123,7 @@ class Interpreter
     this(Variables* parent)
     {
         variable.parent = parent;
+        variable.global = parent;
     }
     this(Interpreter parent, BlockType blockkind)
     {
@@ -126,9 +132,9 @@ class Interpreter
     }
     BlockType blockType;
     Variables variable;
-    BlockResult runStatement(Statement statement, ref MObject value)
+    ResultType runStatement(Statement statement, ref MObject value)
     {
-        if(!statement) return BlockResult.None;
+        if(!statement) return ResultType.None;
         switch(statement.Type)
         {
             case NodeType.ExpressionStatement:
@@ -148,12 +154,12 @@ class Interpreter
                 auto statementIf = cast(If)statement;
                 MObject cond;
                 cond = Eval(statementIf.condition);
-                BlockResult br;
+                ResultType br;
                 if(cond.opBool)
                 {
                     auto interpreter = new Interpreter(this, BlockType.If);
                     br = interpreter.runStatement(statementIf.thenStatement, value);
-                    if(br != BlockResult.None) return br;
+                    if(br != ResultType.None) return br;
                 }
                 else
                 {
@@ -161,17 +167,17 @@ class Interpreter
                     {
                         auto interpreter = new Interpreter(this, BlockType.If);
                         br = interpreter.runStatement(statementIf.elseStatement, value);
-                        if(br != BlockResult.None) return br;
+                        if(br != ResultType.None) return br;
                     }
                 }
                 break;
             case NodeType.Statements:
                 auto statements = cast(Statements)statement;
-                BlockResult br;
+                ResultType br;
                 foreach(s; statements.statements)
                 {
                     br = runStatement(s, value);
-                    if(br != BlockResult.None) return br;
+                    if(br != ResultType.None) return br;
                 }
                 break;
             case NodeType.For:
@@ -195,10 +201,14 @@ class Interpreter
                 }
                 while(true)
                 {
-                    BlockResult br = interpreter.runStatement(statementFor.statement, value);
-                    if(br == BlockResult.Break)
+                    ResultType br = interpreter.runStatement(statementFor.statement, value);
+                    if(br == ResultType.Break)
                     {
                         break;
+                    }
+                    if(br != ResultType.None && br != ResultType.Continue)
+                    {
+                        return br;
                     }
                     if(infloop) continue;
                     interpreter.Eval(statementFor.loop);
@@ -208,13 +218,16 @@ class Interpreter
                 }
                 break;
             case NodeType.Break:
-                return BlockResult.Break;
+                return ResultType.Break;
             case NodeType.Continue:
-                return BlockResult.Continue;
+                return ResultType.Continue;
+            case NodeType.Return:
+                value = Eval((cast(Return)statement).expression);
+                return ResultType.Return;
             default:
                 throw new RuntimeException("What");
         }
-        return BlockResult.None;
+        return ResultType.None;
     }
     public MObject Eval(Expression tree)
     {
@@ -244,12 +257,12 @@ class Interpreter
                             throw new RuntimeException(op1.toString ~ " is not function");
                         }
                         FunctionArgs FA = cast(FunctionArgs)bo.OP2;
-                        Array!MObject args;
+                        ArgsType args;
                         foreach(tr; FA.args)
                         {
                             args.insertBack(Eval(tr));
                         }
-                        return op1.value.Func(args);
+                        return op1.call(args, this);
                     default:
                 }
                 MObject op1 = Eval(bo.OP1);

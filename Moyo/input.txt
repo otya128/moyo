@@ -1,3 +1,8 @@
+var c(var d)
+{
+	print("args d:",d)
+	"return"
+}
 for(var n=0;n<100;n=n+1)
 {
     if n < 2 continue
@@ -63,3 +68,17 @@ for(var n=0;n<1000;n=n+1)
     }
     if isprime print(n,",")
 }
+print("---function---\n")
+print(c(1),"\n")
+var isPrime(var n)
+{
+    if n < 2 return false
+    if n == 2 return true
+    if n % 2 == 0 return false
+    for(var i = 3; i <= n / i; i = i + 2)
+    {
+        if n % i == 0 return false
+    }
+    return true
+}
+for(var n=0;n<100;n=n+1) if isPrime(n) print(n, ",")
