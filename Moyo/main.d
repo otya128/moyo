@@ -1,11 +1,13 @@
-import std.stdio, std.stream;
+import std.stream;
 import moyo.tree;
 import moyo.parser;
 import moyo.interpreter;
-
+import moyo.stdio;
  int main(string[] argv)
 {
-    writeln("Hello D-World!");
+    string aaa = "こ";
+    aaa ~= "ん";
+    writef("Hello D-World!%s%s%s界 %d %s",aaa,"にちは", "D", 123, argv[0]);
     while(true)
     {
         string line = readln();
@@ -14,7 +16,7 @@ import moyo.interpreter;
         ms.position = 0;
         try
         {
-            auto parser = Parser.fromFile("input.txt", Encoding.ASCII);//new Parser(ms,Encoding.ASCII, "stdin");
+            auto parser = Parser.fromFile("inputv2.txt", Encoding.ASCII);//new Parser(ms,Encoding.ASCII, "stdin");
             scope(exit)
             {
                 parser.close();

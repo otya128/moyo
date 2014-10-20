@@ -360,11 +360,106 @@ class MFunction : Function
         return ret;
     }
 }
-/*
-struct Int : MObject
+template GenerateTypeOperator(const char[] op)
 {
-    public this(int i)
+    const char[] GenerateTypeOperator = "public ValueType op" ~ op ~ "(ValueType op)
+        {
+        switch(type)
+        {
+        case ObjectType.Int:
+        switch(op.type)
+        {
+        case ObjectType.Int:
+        return this;
+        default:
+        return errorType;
+        }
+        default:
+        return errorType;
+        }
+        }";
+}
+template GenerateBooleanOperator(const char[] op)
+{
+    const char[] GenerateBooleanOperator = "public ValueType op" ~ op ~ "(ValueType op)
+        {
+        switch(type)
+        {
+        case ObjectType.Int:
+        switch(op.type)
+        {
+        case ObjectType.Int:
+        return ValueType(ObjectType.Boolean);
+        default:
+        return errorType;
+        }
+        default:
+        return errorType;
+        }
+        }";
+}
+///計算した結果の型を返します。
+struct ValueType
+{
+    string toString()
     {
-        
+        return type.to!string;
     }
-}*/
+    static const ValueType errorType = ValueType();
+    public this(ObjectType ot)
+    {
+        type = ot;
+    }
+    ObjectType type;
+    
+    public this(ObjectType ot, ObjectType t)
+    {
+        type = ot;
+        retType = t;
+    }
+    ObjectType retType;
+    public ValueType opAdd(ValueType op)
+    {
+        switch(type)
+        {
+            case ObjectType.Int:
+                switch(op.type)
+                {
+                    case ObjectType.Int:
+                        return this;
+                    default:
+                        return errorType;
+                }
+            case ObjectType.String:
+                return this;
+            default:
+                return errorType;
+        }
+    }
+    mixin(GenerateTypeOperator!"Sub");
+    mixin(GenerateTypeOperator!"Mul");
+    mixin(GenerateTypeOperator!"Div");
+    mixin(GenerateTypeOperator!"Mod");
+
+    mixin(GenerateBooleanOperator!"Less");
+    mixin(GenerateBooleanOperator!"Greater");
+    mixin(GenerateBooleanOperator!"LessOrEqual");
+    mixin(GenerateBooleanOperator!"GreaterOrEqual");
+    public ValueType opEqual(ValueType op)
+    {
+        switch(type)
+        {
+            default:
+                return ValueType(ObjectType.Boolean);
+        }
+    }
+    public ValueType opNotEqual(ValueType op)
+    {
+        switch(type)
+        {
+            default:
+                return ValueType(ObjectType.Boolean);
+        }
+    }
+    //クラスなどを実装した場合ここに記述
+}

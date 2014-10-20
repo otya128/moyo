@@ -2,7 +2,7 @@ module moyo.parser;
 import moyo.tree;
 import moyo.mobject;
 import moyo.interpreter;
-import std.stdio;
+import moyo.stdio;
 import std.stream;
 import std.ascii;
 import std.conv;
@@ -107,6 +107,7 @@ class ParseError
     this(string message, TokenList tl)
     {
         msg = message;
+        if(!tl) return;
         this.line = tl.line;
         this.linepos = tl.linepos;
         this.pos = tl.position;
@@ -206,7 +207,7 @@ class Parser
                 write(',');
                 stdout.flush();
                 to_s((cast(BinaryOperator)tr).OP2);
-                write("]}");
+                writef("],valueType:%s}", (cast(BinaryOperator)tr).valueType);
                 break;
             case NodeType.Constant:
                 write((cast(Constant)tr).value);
@@ -237,7 +238,7 @@ class Parser
                 break;
             case NodeType.DefineVariable:
                 DefineVariable dv = cast(DefineVariable)tr;
-                writef("{NodeType:DefineVariable,");
+                writef("{NodeType:DefineVariable,define:");
                 for(int i = 0;i < dv.variables.length; i++)
                 {
                     write('[');
@@ -245,11 +246,9 @@ class Parser
                     write(',');
                     to_s(dv.initExpressions[i]);
                     write(']');
-                    if(i < dv.variables.length - 1)
-                    {
-                        write(',');
-                    }
+                    write(',');
                 }
+                writef("valueType:%s", dv.valueType);
                 write('}');
                 break;
             case NodeType.If:
@@ -297,6 +296,11 @@ class Parser
                 }
                 to_s(df.statement);
                 write(']');
+                writef(",valueType:%s}", df.valueType);
+                break;
+            case NodeType.Return:
+                writef("{NodeType:Return,");
+                to_s((cast(Return)tr).expression);
                 write('}');
                 break;
             default:
@@ -356,8 +360,8 @@ class Parser
         foreach(exp; roots)
             to_s(exp);
         writeln();
-        ERROR();
-        //Tree tree = expression(tl, exp);
+        StaticVariable sv = StaticVariable();
+        sv.initGlobal();
         global.initGlobal();
         global.global = &global;
         foreach(exp; roots)
@@ -367,8 +371,19 @@ class Parser
                 auto func = cast(DefineFunction)exp;
                 auto munc = MObject(new MFunction(func));
                 global.define(func.name, munc);
+                sv.define(func.name, ValueType(ObjectType.Function));
             }
         }
+        foreach(exp; roots)
+        {
+            typeInference(exp, sv);
+        }
+        writeln("===TypeInference===");
+        foreach(exp; roots)
+            to_s(exp);
+        writeln();
+        ERROR();
+        //Tree tree = expression(tl, exp);
         auto moyo = new Interpreter(&global);
         writeln();
         MObject ret;
@@ -379,6 +394,104 @@ class Parser
         }
         writeln();
         writeln(ret);
+    }
+    ///文の型推論を行います。
+    ValueType typeInference(Tree statement, ref StaticVariable variable)
+    {
+        switch(statement.Type)
+        {
+            case NodeType.DefineVariable:
+                DefineVariable dv = cast(DefineVariable)statement;
+                dv.valueType = typeInference(dv.initExpressions[0], variable);
+                variable.define(dv.variables[0].name, dv.valueType);
+                for(int i = 1;i < dv.variables.length;i++)
+                {
+                    auto vt = typeInference(dv.initExpressions[i], variable);
+                    if(vt != dv.valueType) Error(new ParseError("型が違う"));
+                    variable.define(dv.variables[i].name, dv.valueType);
+                }
+                return dv.valueType;
+            case NodeType.ExpressionStatement:
+                ExpressionStatement es = cast(ExpressionStatement)statement;
+                return typeInference(es.expression, variable);
+            case NodeType.Statements:
+                auto ss = cast(Statements)statement;
+                foreach(s; ss.statements)
+                {
+                    typeInference(s, ss.variables);
+                }
+                return ValueType.errorType;
+            case NodeType.Return:
+                return typeInference((cast(Return)statement).expression, variable);
+            case NodeType.DefineFunction:
+                auto df = cast(DefineFunction)statement;
+                df.valueType = StaticVariable.nameToType(df.type);
+                variable.define(df.name, ValueType(ObjectType.Function, df.valueType.type));
+                auto sts = cast(Statements)df.statement;
+                foreach(ref i; df.args)
+                {
+                    sts.variables.define(i.name, StaticVariable.nameToType(i.type));
+                }
+                typeInference(df.statement, variable);
+                return ValueType.errorType;
+            default:
+                return ValueType.errorType;
+        }
+    }
+    ///式の型推論を行います。
+    ///ついでに定数式展開(デバッグの支障になるからまだやらない)
+    ValueType typeInference(Expression exp, ref StaticVariable variable)
+    {
+        switch(exp.Type)
+        {
+            case NodeType.BinaryOperator:
+                BinaryOperator bo = cast(BinaryOperator)exp;
+                ValueType op1 = typeInference(bo.OP1, variable);
+                ValueType op2 = typeInference(bo.OP2, variable);
+                if(bo.type == TokenType.LeftParenthesis)
+                {
+                    //関数呼び出し
+                    //返り血が分っているのであればそれを返す、分かっていないなら今から解析
+                    if(op1.type == ObjectType.Function)
+                    {
+                        return bo.valueType = ValueType(op1.retType);
+                    }
+                }
+                if(bo.type == TokenType.Assign)
+                {
+                    if(bo.OP1.Type != NodeType.Variable)
+                    {
+                        Error(new ParseError("無効な代入"));
+                        return ValueType.errorType;
+                    }
+                    auto ptr = variable.getptr((cast(Variable)bo.OP1).name);
+                    if(!ptr)
+                    {
+                        Error(new ParseError("存在しない変数" ~ (cast(Variable)bo.OP1).name.to!string));
+                        return ValueType.errorType;
+                    }
+                    if((*ptr).type != op2.type)
+                    {
+                        Error(new ParseError("変数の型が違います" ~ ((cast(Variable)bo.OP1).name.to!string)));
+                        return ValueType.errorType;
+                    }
+                }
+                return bo.valueType = AutoOperator(op1, op2, bo.type);
+            case NodeType.Constant:
+                return exp.valueType;
+            case NodeType.Variable:
+                auto v = cast(Variable)exp;
+                return v.valueType = variable.get(v.name);
+            case NodeType.FunctionArgs:
+                auto fa = cast(FunctionArgs)exp;
+                foreach(f; fa.args)
+                {
+                    typeInference(f, variable);
+                }
+                return ValueType.errorType;
+            default:
+                return ValueType.errorType;
+        }
     }
     Array!Tree parseGlobal(ref TokenList tl)
     {
@@ -424,6 +537,7 @@ class Parser
             {
                 df.add(tl.name, tl.next.name);
                 tl = tl.next;
+                if(tl.next.type != TokenType.RightParenthesis)tl = tl.next;
             }
             tl = tl.next;
         }
@@ -594,7 +708,7 @@ class Parser
                 cons = new Constant();
                 cons.value = tl.constant;
                 tree = cons;
-                cons.valueType = tl.constant.Type;
+                cons.valueType = ValueType(tl.constant.Type);
                 break;
             case TokenType.LeftParenthesis:
                 auto tk = tl.next;
@@ -609,6 +723,11 @@ class Parser
                 return null;
         }
         return tree;
+    }
+    //lambda
+    Expression nonOpExpression(ref TokenList tl, Expression op1)
+    {
+        return op1;
     }
     Expression parseExpression(ref TokenList tl)
     {
@@ -899,6 +1018,11 @@ class Parser
                                 AddList(TokenType.Equals);
                             else
                             {
+                                if(nextchar == '>')
+                                {
+                                    AddList(TokenType.Lambda);
+                                    break;
+                                }
                                 AddList(TokenType.Assign);
                                 inchar = nextchar;
                                 goto case_ParserStat_None;

@@ -24,6 +24,26 @@ template GenOperatorFunction(TokenType type)
         "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
         "return op1.op" ~ type.to!(const char[]) ~ "(op2);";
 }
+T AutoOperator(T)(T op1, T op2, TokenType tt)
+{
+    switch(tt - TokenType.OP)
+    {
+        mixin(GenOperator!("Plus", "+"));
+        mixin(GenOperator!("Minus", "-"));
+        mixin(GenOperator!("Mul", "*"));
+        mixin(GenOperator!("Div", "/"));
+        mixin(GenOperator!("Mod", "%"));
+        mixin(GenOperatorFunction!(TokenType.Equals, "Equal"));
+        //IDE補完が効いて楽
+        mixin(GenOperatorFunction!(TokenType.NotEquals, "NotEqual"));
+        mixin(GenOperatorFunction!(TokenType.Less));
+        mixin(GenOperatorFunction!(TokenType.Greater));
+        mixin(GenOperatorFunction!(TokenType.LessOrEqual));
+        mixin(GenOperatorFunction!(TokenType.GreaterOrEqual));
+        default:
+            return T();
+    }
+}
 class RuntimeException : Exception
 {
     this(wstring msg)

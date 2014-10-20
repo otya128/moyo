@@ -32,6 +32,7 @@ enum TokenType
     BlockStart = 0b111,//{
     BlockEnd = 0b1000,//}
     Semicolon = 0b1001,//;
+    Lambda = 0b1010,//=>
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,
@@ -84,7 +85,7 @@ abstract class XmasTree : Tree
 }
 abstract class Expression : Tree
 {
-    ObjectType valueType;
+    ValueType valueType;
 }
 class BinaryOperator : Expression
 {//override
@@ -130,11 +131,13 @@ class ExpressionStatement : Statement
         this.expression = exp;
     }
 	Expression expression;
+    public @property ValueType valueType(){return expression.valueType;}
 }
 class Statements : Statement
 {
     public override @property NodeType Type(){return NodeType.Statements;}
     Array!Statement statements;
+    StaticVariable variables;
 }
 ///type-name variable-name[=expression][, variable-name[=expression]...]
 class DefineVariable : Statement
@@ -147,6 +150,7 @@ class DefineVariable : Statement
     mstring typeName;
     std.container.Array!Variable variables;
     Array!Expression initExpressions;
+    ValueType valueType;
     public void add(mstring name, Expression exp)
     {
         variables.insertBack(new Variable(name));
@@ -208,6 +212,85 @@ class DefineFunction : Tree
     auto add(mstring type, mstring name)
     {
         args.insertBack(VariablePair(type, name));
+    }
+    ValueType valueType;
+}
+struct StaticVariable
+{
+    ValueType[mstring] var;
+    this(StaticVariable* v)
+    {
+        parent = v;
+    }
+    StaticVariable* parent = null;
+    StaticVariable* global = null;
+    protected ValueType parentGet(mstring str)
+    {
+        if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+        return parent.get(str);
+    }
+    public ValueType* getptr(mstring str)
+    {
+        ValueType* mptr;
+        if((mptr = str in var) is null)
+        {
+            if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+            return parent.getptr(str);
+        }
+        else
+        {
+            return mptr;
+        }
+    }
+    public ValueType get(mstring str)
+    {
+        ValueType* mptr;
+        if((mptr = str in var) is null)
+        {
+            if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+            return parent.get(str);
+        }
+        else
+        {
+            return *mptr;
+        }
+    }
+    public void define(mstring str, ValueType ret)
+    {
+        var[str] = ret;
+    }
+    public void set(mstring str, ValueType ret)
+    {
+        if(str !in var)
+        {
+            if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+            return parent.set(str, ret);
+        }
+        var[str] = ret;
+    }
+    //このスコープをグローバルとして初期化
+    void initGlobal()
+    {
+        var["print"] = ValueType();
+        var["null"] = ValueType();
+        var["true"] = ValueType(ObjectType.Boolean);
+        var["false"] = ValueType(ObjectType.Boolean);
+        var.rehash();
+    }
+    static ValueType[mstring] types;
+    static this()
+    {
+        types = [
+            "int": ValueType(ObjectType.Int),
+            "bool": ValueType(ObjectType.Boolean),
+            "string": ValueType(ObjectType.String),
+        ];
+        types.rehash();
+    }
+    static ValueType nameToType(mstring mstr)
+    {
+        ValueType* ms = (mstr in types);
+        return ms ? *ms : ValueType.errorType;
     }
 }
 unittest
