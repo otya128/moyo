@@ -47,6 +47,7 @@ enum TokenType
     Greater,
     LessOrEqual,
     GreaterOrEqual,
+    Dot,//.
 }
 
 /+

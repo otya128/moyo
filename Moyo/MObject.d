@@ -9,7 +9,8 @@ enum ObjectType : byte
     Int,
     Boolean,
     String,
-    Function
+    Function,
+    ClassInstance,
 }
 //size 64bit
 union MObjectUnion
@@ -49,7 +50,8 @@ class MObject__vfptr
     bool function(ref MObject) opBool;
     MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall;
     ObjectType type;
-    public this(ObjectType type, mstring function(ref MObject) to_s,
+    BaseClassInfo classInfo;
+    public this(ObjectType type, BaseClassInfo info, mstring function(ref MObject) to_s,
                 operator opAdd = &NoImplFunctionA2,
                 operator opSub = &NoImplFunctionA2,
                 operator opMul = &NoImplFunctionA2,
@@ -62,6 +64,7 @@ class MObject__vfptr
                 operator opLessOrEqual = &NoImplFunctionA2,
                 operator opGreaterOrEqual = &NoImplFunctionA2)
     {
+        this.classInfo = info;
         this.type = type;
         this.toString = to_s;
         this.opAdd = opAdd;
@@ -80,6 +83,7 @@ class MObject__vfptr
     public this(mstring function(ref MObject) to_s, MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall)
     {
         this.type = ObjectType.Function;
+        this.classInfo = new ObjectClassInfo();
         this.toString = to_s;
         this.opCall = opCall;
     }
@@ -94,24 +98,27 @@ class MObject__vfptr
         return that;
     }
 }
-MObject__vfptr vfptrs[ObjectType.max + 1] = [
-    ObjectType.Void: new MObject__vfptr(ObjectType.Void, &toStringTypename!"Void"),
-    ObjectType.Object: new MObject__vfptr(ObjectType.Object, &toStringObject, &NoImplFunctionA2),
-    ObjectType.Int: new MObject__vfptr(ObjectType.Int, &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
-                                       (ref MObject op1, ref MObject op2)=>
-                                       MObject(op1.value.Int32 == op2.value.Int32),
-                                       &opNotEqualInt32, &opLessInt32, &opGreaterInt32, &opLessOrEqualInt32, &opGreaterOrEqualInt32),
-    ObjectType.Boolean: MObject__vfptr.addOpEquals(
-                                                MObject__vfptr.addOpBool(
-                                                                         new MObject__vfptr(ObjectType.Boolean, &toStringBoolean), &opBoolBoolean),
-                                                (ref MObject op1, ref MObject op2)=>MObject(op1.value.Boolean == op2.value.Boolean)
-                                                ),
-    ObjectType.String: MObject__vfptr.addOpEquals(
-                                               new MObject__vfptr(ObjectType.String, &toStringString, &opAddString),
-                                               (ref MObject op1, ref MObject op2)=>MObject(op1.value.String == op2.value.String)
-                                               ),
-    ObjectType.Function: new MObject__vfptr(&toStringFunction, &Function.opCallFunction),
-];
+MObject__vfptr[] vfptrs;//[ObjectType.max + 1]
+MObject__vfptr[] initvfptrs(MObject__vfptr[] vfptrs)
+{
+    vfptrs[ObjectType.Void] = new MObject__vfptr(ObjectType.Void, new ObjectClassInfo(), &toStringTypename!"Void");
+    vfptrs[ObjectType.Object] = new MObject__vfptr(ObjectType.Object, new ObjectClassInfo(), &toStringObject, &NoImplFunctionA2);
+    vfptrs[ObjectType.Int] = new MObject__vfptr(ObjectType.Int, new ObjectClassInfo(), &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
+                                                (ref MObject op1, ref MObject op2)=>
+        MObject(op1.value.Int32 == op2.value.Int32),
+                                                &opNotEqualInt32, &opLessInt32, &opGreaterInt32, &opLessOrEqualInt32, &opGreaterOrEqualInt32);
+    vfptrs[ObjectType.Boolean] = MObject__vfptr.addOpEquals(
+                                                            MObject__vfptr.addOpBool(
+                                                                                     new MObject__vfptr(ObjectType.Boolean, new ObjectClassInfo(), &toStringBoolean), &opBoolBoolean),
+                                                            (ref MObject op1, ref MObject op2)=>MObject(op1.value.Boolean == op2.value.Boolean)
+                                                            );
+    vfptrs[ObjectType.String] = MObject__vfptr.addOpEquals(
+                                                           new MObject__vfptr(ObjectType.String, new ObjectClassInfo(), &toStringString, &opAddString),
+                                                           (ref MObject op1, ref MObject op2)=>MObject(op1.value.String == op2.value.String)
+                                                               );
+    vfptrs[ObjectType.Function] = new MObject__vfptr(&toStringFunction, &Function.opCallFunction);
+    return vfptrs;
+}
 struct MObject
 {
     public @property ObjectType Type(){return type;}
@@ -193,6 +200,10 @@ struct MObject
     public MObject opGreaterOrEqual(ref MObject op1)
     {
         return vfptrs[type].opGreaterOrEqual(this, op1);
+    }
+    public MObject opDot(mstring name)
+    {
+        return vfptrs[type].classInfo.getMember(name);
     }
 }
 MObject Void = MObject();
@@ -360,6 +371,74 @@ class MFunction : Function
         return ret;
     }
 }
+import moyo.tree;
+abstract class BaseClassInfo
+{
+    ValueType getMemberType(mstring str);
+    MObject getMember(mstring str);
+}
+//primitive
+class ObjectClassInfo : BaseClassInfo
+{
+    StaticVariable membersType;
+    Variables members;
+    static MObject ObjectToString(Array!MObject mob)
+    {
+        if(mob.length != 1)
+        {
+            throw new RuntimeException("length");
+        }
+        return MObject(mob[0].toString());
+    }
+    this()
+    {
+        membersType.define("ToString", ValueType(ObjectType.Function));
+        members.define("ToString", MObject(new NativeFunction(&ObjectToString)));
+    }
+    override ValueType getMemberType(mstring str)
+    {
+        return membersType.get(str);
+    }
+    override MObject getMember(mstring str)
+    {
+        return members.get(str);
+    }
+}
+///class info
+/*
+class MClassInfo : BaseClassInfo
+{
+    MClassInfo parentClass;
+    Variables staticMembers;
+    StaticVariable staticMembersType;
+    StaticVariable members;
+    this(MClassInfo parent)
+    {
+        staticMembers.parent = &parent.staticMembers;
+        members.parent = &parent.members;
+        this.parentClass = parent;
+    }
+    MClass create()
+    {
+        return new MClass(this);
+    }
+    override ValueType getMemberType(mstring str)
+    {
+        return staticMembersType.get(str);
+    }
+    override MObject getMember(mstring str)
+    {
+        return staticMembers.get(str);
+    }
+}
+class MClass
+{
+    MClassInfo classInfo;
+    this(MClassInfo classInfo)
+    {
+        this.classInfo = classInfo;
+    }
+}*/
 template GenerateTypeOperator(const char[] op)
 {
     const char[] GenerateTypeOperator = "public ValueType op" ~ op ~ "(ValueType op)
@@ -460,6 +539,10 @@ struct ValueType
             default:
                 return ValueType(ObjectType.Boolean);
         }
+    }
+    public ValueType opDot(mstring name)
+    {
+        return vfptrs[this.type].classInfo.getMemberType(name);
     }
     //クラスなどを実装した場合ここに記述
 }

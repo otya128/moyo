@@ -35,6 +35,10 @@ enum Reserved : byte
     Break,
     Continue,
     Return,
+    Class,
+    Public,
+    Protected,
+    Private,
 }
 class TokenList
 {
@@ -47,8 +51,13 @@ class TokenList
             "break": Reserved.Break,
             "continue": Reserved.Continue,
             "return": Reserved.Return,
+            "class": Reserved.Class,
+            "public": Reserved.Public,
+            "protected": Reserved.Protected,
+            "private": Reserved.Private,
         ];
         reservedTable.rehash();
+        vfptrs = initvfptrs(new MObject__vfptr[ObjectType.max + 1]);
     }
     TokenType type;
     TokenList next;
@@ -144,6 +153,8 @@ int rank(TokenType type)
     //面倒だしやめた
     switch(type)
     {
+        case TokenType.Dot:
+            return 1;
         case TokenType.Mul:
         case TokenType.Div:
         case TokenType.Mod:
@@ -447,6 +458,16 @@ class Parser
             case NodeType.BinaryOperator:
                 BinaryOperator bo = cast(BinaryOperator)exp;
                 ValueType op1 = typeInference(bo.OP1, variable);
+                if(bo.type == TokenType.Dot)
+                {
+                    if(bo.OP2.Type != NodeType.Variable)
+                    {
+                        Error(new ParseError("変数じゃない" ~ ((cast(Variable)bo.OP1).name.to!string)));
+                        return ValueType.errorType;
+                    }
+                    mstring name = (cast(Variable)bo.OP2).name;
+                    return bo.valueType = op1.opDot(name);
+                }
                 ValueType op2 = typeInference(bo.OP2, variable);
                 if(bo.type == TokenType.LeftParenthesis)
                 {
@@ -1060,6 +1081,9 @@ class Parser
                                 //inchar = nextchar;
                                 //goto case_ParserStat_None;
                             }
+                            break;
+                        case '.':
+                            AddList(TokenType.Dot);
                             break;
                         case ',':
                             AddList(TokenType.Comma);
