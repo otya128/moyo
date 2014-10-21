@@ -113,6 +113,11 @@ class ParseError
     {
         this.msg = message;
     }
+    ///そのうち実装する
+    this(string message, Tree tree)
+    {
+        this.msg = message;
+    }
     this(string message, TokenList tl)
     {
         msg = message;
@@ -155,6 +160,8 @@ int rank(TokenType type)
     {
         case TokenType.Dot:
             return 1;
+        case TokenType.LeftParenthesis:
+            return 2;
         case TokenType.Mul:
         case TokenType.Div:
         case TokenType.Mod:
@@ -437,12 +444,16 @@ class Parser
             case NodeType.DefineFunction:
                 auto df = cast(DefineFunction)statement;
                 df.valueType = StaticVariable.nameToType(df.type);
-                variable.define(df.name, ValueType(ObjectType.Function, df.valueType.type));
                 auto sts = cast(Statements)df.statement;
+                auto fc = new FunctionClassInfo();
                 foreach(ref i; df.args)
                 {
-                    sts.variables.define(i.name, StaticVariable.nameToType(i.type));
+                    auto type = StaticVariable.nameToType(i.type);
+                    fc.args.insertBack(type);
+                    sts.variables.define(i.name, type);
                 }
+                fc.retType = df.valueType;
+                variable.define(df.name, ValueType(ObjectType.Function, fc));
                 typeInference(df.statement, variable);
                 return ValueType.errorType;
             default:
@@ -475,8 +486,10 @@ class Parser
                     //返り血が分っているのであればそれを返す、分かっていないなら今から解析
                     if(op1.type == ObjectType.Function)
                     {
-                        return bo.valueType = ValueType(op1.retType);
+                        return bo.valueType = (cast(FunctionClassInfo)op1.classInfo).retType;
                     }
+//                    Error(new ParseError("Function!?", bo));
+                    return ValueType.errorType;
                 }
                 if(bo.type == TokenType.Assign)
                 {
@@ -782,6 +795,12 @@ class Parser
                 bobo = new BinaryOperator(null, null, tl.type);
                 bobo.OP1 = bo;
                 tree = bobo;
+                Expression exp = bobo;
+                if(expression2(tl, exp))
+                {
+                    tree = exp;
+                    return exp;
+                }
                 expression(tl, tree);
                 bo = tree;
             }
@@ -858,8 +877,8 @@ class Parser
         //大きければ左再帰する
         if(tl.type.rank() >= bo.type.rank && bo.type.rank != AssignRank)
         {
-            bo.OP2 = op1;
             tr = bo;
+            bo.OP2 = op1;
             return;
             // bo.OP1 = ;
             bo = new BinaryOperator(null, null, tl.type);

@@ -61,6 +61,10 @@ class VariableUndefinedException : RuntimeException
     {
         super(var ~ " is undefined");
     }
+    this(string var)
+    {
+        super(var ~ " is undefined");
+    }
 }
 struct Variables
 {
@@ -270,14 +274,32 @@ class Interpreter
                         MObject op2 = Eval(bo.OP2);
                         variable.set(v.name, op2);
                         return op2;
-                    case TokenType.LeftParenthesis:
+                    case TokenType.Dot:
                         MObject op1 = Eval(bo.OP1);
+                        Variable v = cast(Variable)bo.OP2;
+                        return op1.opDot(v.name);
+                    case TokenType.LeftParenthesis:
+                        MObject op1;
+                        MObject thisptr;
+                        if(bo.OP1.Type == NodeType.BinaryOperator && (cast(BinaryOperator)bo.OP1).type == TokenType.Dot)
+                        {
+                            auto bobo = cast(BinaryOperator)bo.OP1;
+                            thisptr = Eval(bobo.OP1);
+                            Variable v = cast(Variable)bobo.OP2;
+                            op1 = thisptr.opDot(v.name);
+                        }
+                        else
+                        op1 = Eval(bo.OP1);
                         if(op1.Type != ObjectType.Function)
                         {
                             throw new RuntimeException(op1.toString ~ " is not function");
                         }
                         FunctionArgs FA = cast(FunctionArgs)bo.OP2;
                         ArgsType args;
+                        if(bo.OP1.Type == NodeType.BinaryOperator && (cast(BinaryOperator)bo.OP1).type == TokenType.Dot)
+                        {
+                            args.insertBack(thisptr);
+                        }
                         foreach(tr; FA.args)
                         {
                             args.insertBack(Eval(tr));

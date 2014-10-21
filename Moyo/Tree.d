@@ -272,7 +272,7 @@ struct StaticVariable
     //このスコープをグローバルとして初期化
     void initGlobal()
     {
-        var["print"] = ValueType();
+        var["print"] = ValueType(ObjectType.Function, new FunctionClassInfo());
         var["null"] = ValueType();
         var["true"] = ValueType(ObjectType.Boolean);
         var["false"] = ValueType(ObjectType.Boolean);

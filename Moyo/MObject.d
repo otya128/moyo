@@ -380,8 +380,10 @@ abstract class BaseClassInfo
 //primitive
 class ObjectClassInfo : BaseClassInfo
 {
+    static MObject to_s = MObject(new NativeFunction(&ObjectToString));
     StaticVariable membersType;
     Variables members;
+    static ValueType retStringArgVoid = ValueType(ObjectType.Function, new FunctionClassInfo(ValueType(ObjectType.String)));
     static MObject ObjectToString(Array!MObject mob)
     {
         if(mob.length != 1)
@@ -392,8 +394,8 @@ class ObjectClassInfo : BaseClassInfo
     }
     this()
     {
-        membersType.define("ToString", ValueType(ObjectType.Function));
-        members.define("ToString", MObject(new NativeFunction(&ObjectToString)));
+        membersType.define("ToString", retStringArgVoid);
+        members.define("ToString", to_s);
     }
     override ValueType getMemberType(mstring str)
     {
@@ -402,6 +404,32 @@ class ObjectClassInfo : BaseClassInfo
     override MObject getMember(mstring str)
     {
         return members.get(str);
+    }
+}
+class FunctionClassInfo : BaseClassInfo
+{
+    Array!ValueType args;
+    ValueType retType;
+    this(){}
+    this(ValueType retType)
+    {
+        this.retType = retType;
+    }
+    override ValueType getMemberType(mstring name)
+    {
+        if(name == "ToString")
+        {
+            return ObjectClassInfo.retStringArgVoid;
+        }
+        return ValueType.errorType;
+    }
+    override MObject getMember(mstring name)
+    {
+        if(name == "ToString")
+        {
+            return ObjectClassInfo.to_s;
+        }
+        throw new VariableUndefinedException(name);
     }
 }
 ///class info
@@ -480,23 +508,27 @@ template GenerateBooleanOperator(const char[] op)
 ///計算した結果の型を返します。
 struct ValueType
 {
+    static ValueType Object = ValueType(ObjectType.Object);
+    static ValueType Int = ValueType(ObjectType.Int);
+    static ValueType Boolean = ValueType(ObjectType.Boolean);
+    static ValueType String = ValueType(ObjectType.String);
+    static ValueType Function = ValueType(ObjectType.Function);
     string toString()
     {
         return type.to!string;
     }
-    static const ValueType errorType = ValueType();
+    static ValueType errorType = ValueType();
     public this(ObjectType ot)
     {
         type = ot;
     }
     ObjectType type;
-    
-    public this(ObjectType ot, ObjectType t)
+    BaseClassInfo classInfo;
+    public this(ObjectType ot, BaseClassInfo t)
     {
         type = ot;
-        retType = t;
+        classInfo = t;
     }
-    ObjectType retType;
     public ValueType opAdd(ValueType op)
     {
         switch(type)
