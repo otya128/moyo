@@ -380,7 +380,7 @@ abstract class BaseClassInfo
 //primitive
 class ObjectClassInfo : BaseClassInfo
 {
-    static MObject to_s = MObject(new NativeFunction(&ObjectToString));
+    static MObject to_s = MObject(new NativeFunction(&ObjectToString, "ToString"));
     StaticVariable membersType;
     Variables members;
     static ValueType retStringArgVoid = ValueType(ObjectType.Function, new FunctionClassInfo(ValueType(ObjectType.String)));

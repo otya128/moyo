@@ -798,14 +798,24 @@ class Parser
                 Expression exp = bobo;
                 if(expression2(tl, exp))
                 {
-                    tree = exp;
-                    return exp;
+                    bo = exp;
+                    continue;
                 }
                 expression(tl, tree);
                 bo = tree;
             }
             else//右再帰 
             {
+                Expression exp = bobo;
+                if(bobo.type == TokenType.LeftParenthesis)
+                {
+                    bobo = new BinaryOperator(null, null, tl.type);
+                    bobo.OP1 = bo;
+                    tree = bobo;
+                    expression(tl, tree);
+                    bo = tree;
+                    continue;
+                }
                 auto bi = new BinaryOperator(op1, null, tl.type);
                 bobo.OP2 = bi;
                 expression(tl, bobo.OP2);
@@ -871,7 +881,9 @@ class Parser
             return;//throw new ParseException("Syntax Error(Operator)", tl);
         }
         if(expression2(tl, tr))
-        {
+        {/*
+            tr = bo;
+            bo.OP2 = op1;*/
             return;
         }
         //大きければ左再帰する
