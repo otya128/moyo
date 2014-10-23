@@ -1,6 +1,5 @@
 module moyo.mobject;
 import std.conv;
-import moyo.interpreter;
 alias wstring mstring;
 enum ObjectType : byte
 {
@@ -31,6 +30,11 @@ union MObjectUnion
     Function Func;
 }
 //alias typeof(&opAddInt32) operator;//MObject function (ref MObject, ref MObject) operator;
+alias moyo.interpreter.Interpreter Interpreter;
+alias moyo.interpreter.Variables Variables;
+alias moyo.interpreter.VariableUndefinedException VariableUndefinedException;
+alias moyo.interpreter.RuntimeException RuntimeException;
+
 class MObject__vfptr
 {
     //__vtbl
@@ -97,7 +101,12 @@ class MObject__vfptr
         that.opEquals = opEquals;
         return that;
     }
+    static this()
+    {
+        vfptrs = initvfptrs(new MObject__vfptr[ObjectType.max + 1]);
+    }
 }
+//alias vfptrs = MObject__vfptr.vfptrs;
 MObject__vfptr[] vfptrs;//[ObjectType.max + 1]
 MObject__vfptr[] initvfptrs(MObject__vfptr[] vfptrs)
 {
@@ -340,7 +349,7 @@ class NativeFunction : Function
 }
 class MFunction : Function
 {
-    import moyo.tree;
+    alias moyo.tree.DefineFunction DefineFunction;
     DefineFunction tree;
     this(DefineFunction df)
     {
@@ -371,13 +380,13 @@ class MFunction : Function
         return ret;
     }
 }
-import moyo.tree;
 abstract class BaseClassInfo
 {
     ValueType getMemberType(mstring str);
     MObject getMember(mstring str);
 }
 //primitive
+alias moyo.tree.StaticVariable StaticVariable;
 class ObjectClassInfo : BaseClassInfo
 {
     static MObject to_s = MObject(new NativeFunction(&ObjectToString, "ToString"));

@@ -57,7 +57,8 @@ class TokenList
             "private": Reserved.Private,
         ];
         reservedTable.rehash();
-        vfptrs = initvfptrs(new MObject__vfptr[ObjectType.max + 1]);
+        end = new TokenList();
+        end.next = end;
     }
     TokenType type;
     TokenList next;
@@ -67,16 +68,24 @@ class TokenList
     int linepos;
     MObject constant;
     mstring name;
+    @property bool isEnd()
+    {
+        return this == end;
+    }
     this()
     {
+        this.next = end;
     }
     this(mstring name)
     {
+        this();
+        assert(this.next !is null);
         this.name = name;
         auto res = (name in reservedTable);
         reserved = res ? *res : Reserved.None;
     }
     Reserved reserved;
+    static TokenList end;
 }
 static void nextToken(ref TokenList tl)
 {
@@ -95,7 +104,7 @@ struct TokenListRange
     }
     public @property bool empty()
     {
-        return __front is null;
+        return __front.isEnd;
     }
     public void popFront()
     {
@@ -116,12 +125,17 @@ class ParseError
     ///そのうち実装する
     this(string message, Tree tree)
     {
-        this.msg = message;
+        if(!tree || !tree.token)
+        {
+            this(message);
+            return;
+        }
+        this(message, tree.token);
     }
     this(string message, TokenList tl)
     {
         msg = message;
-        if(!tl) return;
+        if(tl.isEnd) return;
         this.line = tl.line;
         this.linepos = tl.linepos;
         this.pos = tl.position;
@@ -205,6 +219,7 @@ class Parser
         this.name = name;
         this.closeStream = closeStream;
     }
+    ///鳥栖
     void to_s(Tree tr)
     {
         if(!tr)
@@ -327,6 +342,7 @@ class Parser
         stdout.flush();
     }
     Variables global;
+    //unittest用
     public MObject ParseAndEval()
     {
         auto tl = Lex();
@@ -530,7 +546,7 @@ class Parser
     Array!Tree parseGlobal(ref TokenList tl)
     {
 		Array!Tree nodes;
-		while(tl)
+		while(!tl.isEnd)
 		{
             if(tl.type == TokenType.Iden)
             {
@@ -556,11 +572,61 @@ class Parser
         }
 		return nodes;
     }
+    bool isTypeName(TokenList tl)
+    {
+        if(tl.type != TokenType.Iden) return false;
+        tl = tl.next;//iden
+        //gonyo
+        return true;
+    }
     DefineClass parseDefileClass(ref TokenList tl)
     {
-        tl = tl.next;//class
         auto dc = new DefineClass(tl);
+        tl = tl.next;//class
+        tl = tl.next;//name
+        dc.name = tl.name;
         tl = tl.next;
+        if(tl.type != TokenType.BlockStart)
+        {
+            Error(new ParseError("class定義は{で始まる必要があります。}", tl));
+        }
+        Reserved access = Reserved.None;
+        while(!tl.isEnd)
+        {
+            if(tl.type == TokenType.Iden)
+            {
+                switch(tl.reserved)
+                {
+                    case Reserved.Public:
+                    case Reserved.Protected:
+                    case Reserved.Private:
+                        if(access != Reserved.None)
+                        {
+                            Error("public, protected, privateを複数指定する事は出来ません。", tl);
+                        }
+                        access = tl.reserved;
+                        tl = tl.next;
+                        if(tl.type != TokenType.Iden)
+                        {
+                            Error("型名は識別子で始まる必要があります。", tl);
+                            continue;
+                        }
+                        goto default;
+                    default:
+                        if(tl.next.type != TokenType.Iden)
+                        {
+                            Error("不正な宣言", tl);
+                        }
+                        if(tl.next.next.type == TokenType.LeftParenthesis)
+                        {
+                            //関数
+                        }
+                        access = Reserved.None;
+                        break;
+                }
+                tl = tl.next;
+            }
+        }
         return dc;
     }
     //ただしstatic/public/privateは無いものとする
@@ -641,7 +707,7 @@ class Parser
             tl = tl.next;
             return statements;
         }
-		while(tl)
+		while(!tl.isEnd)
 		{
             statements.statements.insertBack(parseStatement(tl));
             if(tl && tl.type == TokenType.BlockEnd) 
@@ -656,7 +722,7 @@ class Parser
     {
         DefineVariable dv = new DefineVariable(tl.name, tl);
         tl = tl.next;
-        while(tl)
+        while(!tl.isEnd)
         {
             if(tl.type != TokenType.Iden) break;
             mstring variablename = tl.name;
@@ -703,7 +769,7 @@ class Parser
         //空白文だったら飛ばす
         Statement _1 = tl.type == TokenType.Semicolon ? null : parseStatement(tl);
         
-        if(_1 !is null && _1.Type != NodeType.DefineVariable && _1.Type != NodeType.ExpressionStatement)
+        if(_1.Type != NodeType.DefineVariable && _1.Type != NodeType.ExpressionStatement)
         {
             Error(new ParseError("forの文には変数宣言か式か空白である必要があります。", tl));
         }
@@ -735,7 +801,7 @@ class Parser
     }
     public Expression expression(ref TokenList tl)
     {
-        if(!tl)
+        if(tl.isEnd)
         {
             Error(new ParseError("Syntax Error(Expression) parser bug?"));
             return null;
@@ -774,9 +840,9 @@ class Parser
     {
         Expression tree;
         Expression op1 = expression(tl);
-        if(!tl) return op1;
+        if(tl.isEnd) return op1;
         tl = tl.next;
-        if(!tl) return op1;
+        if(tl.isEnd) return op1;
         if(!tl.type.isOperator())
         {
             if(tl.type == TokenType.Comma)
@@ -792,7 +858,7 @@ class Parser
         }
         Expression bo = new BinaryOperator(op1, null, tl.type, tl);
         if(expression2(tl, bo)) return bo;
-        if(!tl) return bo;
+        if(tl.isEnd) return bo;
         expression(tl, bo);
         while(tl && tl.next && tl.type.isOperator())//kimmo
         {
@@ -847,10 +913,10 @@ class Parser
         auto func = new FunctionArgs(tl);
         bo.OP2 = func;
         tl = tl.next;
-        while(tl !is null && tl.type != TokenType.RightParenthesis)
+        while(!tl.isEnd && tl.type != TokenType.RightParenthesis)
         {
             func.args.insertBack(parseExpression(tl));
-            if(tl is null || tl.type == TokenType.RightParenthesis) break;
+            if(tl.isEnd || tl.type == TokenType.RightParenthesis) break;
             if(tl)tl = tl.next;
         }
         if(tl)tl = tl.next;
@@ -863,9 +929,9 @@ class Parser
         auto op = tl.type;
         tl = tl.next;
         Expression op1 = expression(tl);
-        if(!tl) return;
+        if(tl.isEnd) return;
         tl = tl.next;
-        if(!tl)
+        if(tl.isEnd)
         {
             bo.OP2 = op1;
             return;
@@ -941,6 +1007,18 @@ class Parser
     void Error(ParseError pe)
     {
         errors.insertBack(pe);
+    }
+    void Error(string msg, TokenList tl)
+    {
+        Error(new ParseError(msg, tl));
+    }
+    void Error(string msg)
+    {
+        Error(new ParseError(msg));
+    }
+    void Error(string msg, Tree tree)
+    {
+        Error(new ParseError(msg, tree));
     }
     /**
     lexical analyzer

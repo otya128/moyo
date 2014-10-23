@@ -3,7 +3,6 @@ Define syntax tree
 */
 module moyo.tree;
 import moyo.mobject;
-import moyo.parser;
 import std.container;
 enum NodeType
 {
@@ -21,6 +20,7 @@ enum NodeType
     Continue,
     Break,
     DefineFunction,
+    DefineClass,
 }
 enum TokenType
 {
@@ -78,6 +78,7 @@ enum TokenType
 2 2
 +/
 //
+alias moyo.parser.TokenList TokenList;
 abstract class Tree
 {
     public @property NodeType Type();
