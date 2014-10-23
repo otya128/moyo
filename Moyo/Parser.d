@@ -1037,7 +1037,7 @@ class Parser
         MemoryStream ms = new MemoryStream();
         string s;
         int len = 0;
-        int line = 0;
+        int line = 1;
         int linepos = 0;
         int start = 0;
         void AddList(TokenType tt, int length = 1, MObject constant = MObject.init)
@@ -1055,6 +1055,7 @@ class Parser
             t.length = 1;
             t.type = tt;
             t.constant = constant;
+            t.line = line;
         }
         void AddListIden(TokenType tt, int length, mstring iden)
         {
@@ -1070,6 +1071,7 @@ class Parser
             t.length = 1;
             t.linepos = linepos - length;
             t.type = tt;
+            t.line = line;
         }
         void AddListString(TokenType tt, int length, mstring str)
         {
@@ -1083,6 +1085,7 @@ class Parser
             tl = t;
             t.position = position - length + 1;
             t.length = 1;
+            t.line = line;
             t.linepos = linepos - length;
             t.type = tt;
             t.name = str;
