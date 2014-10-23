@@ -643,6 +643,10 @@ class Parser
                             Error("型名は識別子で始まる必要があります。", tl);
                             continue;
                         }
+                        if(tl.reserved >= Reserved.Public && tl.reserved <= Reserved.Private) 
+                        {
+                            continue;
+                        }
                         goto default;
                     default:
                         if(tl.next.type != TokenType.Iden)

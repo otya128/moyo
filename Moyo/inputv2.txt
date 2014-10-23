@@ -2,6 +2,8 @@
 class test
 {
     int hoge
+	private public string near
+	protected public private int nearby
     private string fuga(int far)
     {
         return far.ToString()
