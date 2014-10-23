@@ -556,10 +556,17 @@ class Parser
         }
 		return nodes;
     }
+    DefineClass parseDefileClass(ref TokenList tl)
+    {
+        tl = tl.next;//class
+        auto dc = new DefineClass(tl);
+        tl = tl.next;
+        return dc;
+    }
     //ただしstatic/public/privateは無いものとする
     DefineFunction parseDefineFunction(ref TokenList tl)
     {
-        auto df = new DefineFunction();
+        auto df = new DefineFunction(tl);
         df.type = tl.name;
         tl = tl.next;
         df.name = tl.name;
@@ -581,7 +588,7 @@ class Parser
     }
     Return parseReturn(ref TokenList tl)
     {
-        auto ret = new Return();
+        auto ret = new Return(tl);
         tl = tl.next;
         ret.expression = parseExpression(tl);
         return ret;
@@ -603,10 +610,10 @@ class Parser
                     return parseFor(tl);
                 case Reserved.Break:
                     tl = tl.next;
-                    return new Break();
+                    return new Break(tl);
                 case Reserved.Continue:
                     tl = tl.next;
-                    return new Continue();
+                    return new Continue(tl);
                 case Reserved.Return:
                     return parseReturn(tl);
                 case Reserved.None:
@@ -620,7 +627,7 @@ class Parser
         }
         if(tl.type.isExpression())
         {
-            return new ExpressionStatement(parseExpression(tl));
+            return new ExpressionStatement(parseExpression(tl), tl);
         }
         tl = tl.next;
         Error(new ParseError("Invalid Statement", tl));
@@ -628,7 +635,7 @@ class Parser
     }
     Statements parseStatements(ref TokenList tl)
     {
-		Statements statements = new Statements();
+		Statements statements = new Statements(tl);
         if(tl && tl.type == TokenType.BlockEnd) 
         {
             tl = tl.next;
@@ -647,7 +654,7 @@ class Parser
     }
     DefineVariable parseDefineVariable(ref TokenList tl)
     {
-        DefineVariable dv = new DefineVariable(tl.name);
+        DefineVariable dv = new DefineVariable(tl.name, tl);
         tl = tl.next;
         while(tl)
         {
@@ -660,7 +667,7 @@ class Parser
                 tl = tl.next;
                 initexp = parseExpression(tl);
             }
-            dv.add(variablename, initexp);
+            dv.add(variablename, initexp, tl);
             if(tl.type == TokenType.Comma)
             {
                 if(tl)tl = tl.next;
@@ -673,7 +680,7 @@ class Parser
     }
     If parseIf(ref TokenList tl)
     {
-        auto statementIf = new If();
+        auto statementIf = new If(tl);
         tl = tl.next;
         statementIf.condition = parseExpression(tl);
         statementIf.thenStatement = parseStatement(tl);
@@ -686,7 +693,7 @@ class Parser
     }
     For parseFor(ref TokenList tl)
     {
-        auto statementFor = new For();
+        auto statementFor = new For(tl);
         tl = tl.next;
         if(tl.type != TokenType.LeftParenthesis)
         {
@@ -739,7 +746,7 @@ class Parser
         {
             case TokenType.String:
             case TokenType.Number:
-                cons = new Constant();
+                cons = new Constant(tl);
                 cons.value = tl.constant;
                 tree = cons;
                 cons.valueType = ValueType(tl.constant.Type);
@@ -750,7 +757,7 @@ class Parser
                 tl = tk;
                 break;
             case TokenType.Iden:
-                return new Variable(tl.name);
+                return new Variable(tl.name, tl);
                 break;
             default:
                 //Error(new ParseError("Syntax Error(Expression)", tl));
@@ -783,7 +790,7 @@ class Parser
             //Error(new ParseError("Syntax Error(Operator)", tl));
             return op1;
         }
-        Expression bo = new BinaryOperator(op1, null, tl.type);
+        Expression bo = new BinaryOperator(op1, null, tl.type, tl);
         if(expression2(tl, bo)) return bo;
         if(!tl) return bo;
         expression(tl, bo);
@@ -792,7 +799,7 @@ class Parser
             auto bobo = cast(BinaryOperator)bo;
             if(tl.type.rank() >= bobo.type.rank && bobo.type.rank != AssignRank)
             {
-                bobo = new BinaryOperator(null, null, tl.type);
+                bobo = new BinaryOperator(null, null, tl.type, tl);
                 bobo.OP1 = bo;
                 tree = bobo;
                 Expression exp = bobo;
@@ -809,14 +816,14 @@ class Parser
                 Expression exp = bobo;
                 if(bobo.type == TokenType.LeftParenthesis)
                 {
-                    bobo = new BinaryOperator(null, null, tl.type);
+                    bobo = new BinaryOperator(null, null, tl.type, tl);
                     bobo.OP1 = bo;
                     tree = bobo;
                     expression(tl, tree);
                     bo = tree;
                     continue;
                 }
-                auto bi = new BinaryOperator(op1, null, tl.type);
+                auto bi = new BinaryOperator(op1, null, tl.type, tl);
                 bobo.OP2 = bi;
                 expression(tl, bobo.OP2);
             }
@@ -837,7 +844,7 @@ class Parser
     auto parseFunctionCall(ref TokenList tl, ref Expression tr)
     {
         BinaryOperator bo = cast(BinaryOperator)tr;
-        auto func = new FunctionArgs();
+        auto func = new FunctionArgs(tl);
         bo.OP2 = func;
         tl = tl.next;
         while(tl !is null && tl.type != TokenType.RightParenthesis)
@@ -893,28 +900,28 @@ class Parser
             bo.OP2 = op1;
             return;
             // bo.OP1 = ;
-            bo = new BinaryOperator(null, null, tl.type);
+            bo = new BinaryOperator(null, null, tl.type, tl);
             bo.OP1 = bino;
             tr = bo;
             expression(tl, tr);
         }
         else//右再帰 
         {
-            auto bi = new BinaryOperator(op1, null, tl.type);
+            auto bi = new BinaryOperator(op1, null, tl.type, tl);
             bo.OP2 = bi;
             expression(tl, bo.OP2);
             while(tl && tl.next && tl.type.isOperator())//kimmo
             {
                 if(tl.type.rank() >= bo.type.rank && bo.type.rank != AssignRank)
                 {
-                    bo = new BinaryOperator(null, null, tl.type);
+                    bo = new BinaryOperator(null, null, tl.type, tl);
                     bo.OP1 = bino;
                     tr = bo;
                     expression(tl, tr);
                 }
                 else//右再帰 
                 {
-                    bi = new BinaryOperator(bo.OP2, null, tl.type);
+                    bi = new BinaryOperator(bo.OP2, null, tl.type, tl);
                     bo.OP2 = bi;
                     expression(tl, bo.OP2);
                 }

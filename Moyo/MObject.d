@@ -433,7 +433,6 @@ class FunctionClassInfo : BaseClassInfo
     }
 }
 ///class info
-/*
 class MClassInfo : BaseClassInfo
 {
     MClassInfo parentClass;
@@ -466,7 +465,7 @@ class MClass
     {
         this.classInfo = classInfo;
     }
-}*/
+}
 template GenerateTypeOperator(const char[] op)
 {
     const char[] GenerateTypeOperator = "public ValueType op" ~ op ~ "(ValueType op)

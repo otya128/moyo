@@ -3,6 +3,7 @@ Define syntax tree
 */
 module moyo.tree;
 import moyo.mobject;
+import moyo.parser;
 import std.container;
 enum NodeType
 {
@@ -80,6 +81,7 @@ enum TokenType
 abstract class Tree
 {
     public @property NodeType Type();
+    TokenList token;
 }
 abstract class XmasTree : Tree
 {
@@ -93,16 +95,21 @@ class BinaryOperator : Expression
     public override @property NodeType Type(){return NodeType.BinaryOperator;}
     Expression OP1;
     Expression OP2;
-    public this(Expression op1, Expression op2, TokenType tt)
+    public this(Expression op1, Expression op2, TokenType tt, TokenList tl)
     {
         this.OP1 = op1;
         this.OP2 = op2;
         this.type = tt;
+        this.token = tl;
     }
     TokenType type;
 }
 class Constant : Expression
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.Constant;}
     MObject value;
 }
@@ -110,14 +117,19 @@ class Variable : Expression
 {
     public override @property NodeType Type(){return NodeType.Variable;}
     mstring name;
-    public this(mstring name)
+    public this(mstring name, TokenList tl)
     {
         this.name = name;
+        this.token = tl;
     }
 }
 class FunctionArgs : Expression
 {
     import std.container;
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.FunctionArgs;}
     Array!Expression args;
 }
@@ -127,8 +139,9 @@ abstract class Statement : Tree
 class ExpressionStatement : Statement
 {
     public override @property NodeType Type(){return NodeType.ExpressionStatement;}
-    this(Expression exp)
+    this(Expression exp, TokenList tl)
     {
+        this.token = tl;
         this.expression = exp;
     }
 	Expression expression;
@@ -136,6 +149,10 @@ class ExpressionStatement : Statement
 }
 class Statements : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.Statements;}
     Array!Statement statements;
     StaticVariable variables;
@@ -144,23 +161,28 @@ class Statements : Statement
 class DefineVariable : Statement
 {
     public override @property NodeType Type(){return NodeType.DefineVariable;}
-    public this(mstring name)
+    public this(mstring name, TokenList tl)
     {
+        this.token = tl;
         typeName = name;
     }
     mstring typeName;
     std.container.Array!Variable variables;
     Array!Expression initExpressions;
     ValueType valueType;
-    public void add(mstring name, Expression exp)
+    public void add(mstring name, Expression exp, TokenList tl)
     {
-        variables.insertBack(new Variable(name));
+        variables.insertBack(new Variable(name, tl));
         initExpressions.insertBack(exp);
     }
 }
 ///for(statement;expression;expression) statement|{statements}
 class For : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.For;}
     Statement initStatement;
     Expression condition;
@@ -170,6 +192,10 @@ class For : Statement
 ///if expression statement|{statements} [else statement|{statements}]
 class If : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.If;}
     Expression condition;
     Statement thenStatement;
@@ -178,22 +204,38 @@ class If : Statement
 ///return expression
 class Return : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.Return;}
     Expression expression;
 }
 class Continue : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.Continue;}
     Statement continueStatement;
 }
 class Break : Statement
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.Break;}
     Statement breakStatement;
 }
 
 class DefineFunction : Tree
 {
+    public this(TokenList tl)
+    {
+        this.token = tl;
+    }
     public override @property NodeType Type(){return NodeType.DefineFunction;}
     Statement statement;
     mstring type;
@@ -215,6 +257,17 @@ class DefineFunction : Tree
         args.insertBack(VariablePair(type, name));
     }
     ValueType valueType;
+}
+class DefineClass : Tree
+{
+    public override @property NodeType Type(){return NodeType.DefineClass;}
+    this(TokenList tl)
+    {
+        this.token = tl;
+    }
+    mstring name;
+    mstring[] extends;//今の所Interfaceはサポートしていないけど一応
+    MClassInfo mci;
 }
 struct StaticVariable
 {
@@ -296,7 +349,7 @@ struct StaticVariable
 }
 unittest
 {
-    Tree bo = cast(Tree)new BinaryOperator(null, null, TokenType.None);
+    Tree bo = cast(Tree)new BinaryOperator(null, null, TokenType.None, null);
 
     assert(bo.Type == NodeType.BinaryOperator);
     assert(true);

@@ -7,7 +7,17 @@ import moyo.stdio;
 {
     string aaa = "こ";
     aaa ~= "ん";
-    writef("Hello D-World!%s%s%s界 %d %s",aaa,"にちは", "D", 123, argv[0]);
+    writef("Hello D-World!%s%s%s界 %d %s\n",aaa,"にちは", "D", 123, argv[0]);
+    writeln(
+" .-----------------------------------------.
+ |    |              |                     |
+ +----+--------------+---------------------+
+ |    |              |                     |
+ |    |              |                     |
+ |    |              |                     |
+ |    |              |                     |
+ |    |              |                     |
+ '----+--------------+---------------------'");
     while(true)
     {
         string line = readln();
