@@ -1,2 +1,9 @@
 1.ToString().ToString().ToString().ToString().ToString().ToString.ToString().ToString()
-class
+class test
+{
+    int hoge
+    private string fuga(int far)
+    {
+        return far.ToString()
+    }
+}

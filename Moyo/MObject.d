@@ -448,6 +448,7 @@ class MClassInfo : BaseClassInfo
     Variables staticMembers;
     StaticVariable staticMembersType;
     StaticVariable members;
+    StaticVariable functions;
     this(MClassInfo parent)
     {
         staticMembers.parent = &parent.staticMembers;
@@ -465,6 +466,14 @@ class MClassInfo : BaseClassInfo
     override MObject getMember(mstring str)
     {
         return staticMembers.get(str);
+    }
+    void addMember(mstring name, ValueType vt)
+    {
+        members.define(name, vt);
+    }
+    void addFunction(mstring name, ValueType vt)
+    {
+        functions.define(name, vt);
     }
 }
 class MClass

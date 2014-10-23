@@ -336,6 +336,29 @@ class Parser
                 to_s((cast(Return)tr).expression);
                 write('}');
                 break;
+            case NodeType.DefineClass:
+                auto dc = cast(DefineClass)tr;
+                writef("{NodeType:DefineClass,name:%s,variables:[", dc.name);
+                foreach(i; dc.variables)
+                {
+                    write('[');
+                    write(i.access, ',');
+                    to_s(i.value);
+                    write(']');
+                    write(',');
+                }
+                write("],functions:[");
+                foreach(i; dc.functions)
+                {
+                    write('[');
+                    write(i.access, ',');
+                    to_s(i.value);
+                    write(']');
+                    write(',');
+                }
+                write("]");
+                write('}');
+                break;
             default:
 
         }
@@ -392,7 +415,10 @@ class Parser
         //auto exp = parseStatements(tl);//parseExpression(tl);//new Expression();
         auto roots = parseGlobal(tl);
         foreach(exp; roots)
+        {
             to_s(exp);
+            write(',');
+        }
         writeln();
         StaticVariable sv = StaticVariable();
         sv.initGlobal();
@@ -414,7 +440,10 @@ class Parser
         }
         writeln("===TypeInference===");
         foreach(exp; roots)
+        {
             to_s(exp);
+            write(',');
+        }
         writeln();
         ERROR();
         //Tree tree = expression(tl, exp);
@@ -585,7 +614,6 @@ class Parser
     DefineClass parseDefileClass(ref TokenList tl)
     {
         auto dc = new DefineClass(tl);
-        tl = tl.next;//class
         tl = tl.next;//name
         dc.name = tl.name;
         tl = tl.next;
@@ -593,6 +621,7 @@ class Parser
         {
             Error(new ParseError("class定義は{で始まる必要があります。}", dc));
         }
+        tl = tl.next;
         Reserved access = Reserved.None;
         while(!tl.isEnd)
         {
@@ -618,17 +647,28 @@ class Parser
                     default:
                         if(tl.next.type != TokenType.Iden)
                         {
-                            Error("不正な宣言", tl);
+                            Error("不正な宣言", tl.next);
                         }
-                        if(tl.next.next.type == TokenType.LeftParenthesis)
+                        if(access == Reserved.None)
+                        {
+                            access = Reserved.Public;
+                        }
+                        auto tnn = tl.next.next;//not TNN
+                        writeln(tl.type,",",tl.next.type,",",tnn.type);
+                        if(tnn.type == TokenType.LeftParenthesis)
                         {
                             //関数
+                            dc.add(parseDefineFunction(tl), access.toAccess);
+                        }
+                        else 
+                        {
+                            dc.add(parseDefineVariable(tl), access.toAccess);
                         }
                         access = Reserved.None;
-                        break;
+                        continue;
                 }
-                tl = tl.next;
             }
+            tl = tl.next;
         }
         return dc;
     }

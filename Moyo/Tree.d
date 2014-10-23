@@ -50,7 +50,6 @@ enum TokenType
     GreaterOrEqual,
     Dot,//.
 }
-
 /+
 1+1
         +
@@ -259,6 +258,16 @@ class DefineFunction : Tree
     }
     ValueType valueType;
 }
+enum Access
+{
+    Public,
+    Protected,
+    Private,
+}
+Access toAccess(moyo.parser.Reserved tt)
+{
+    return cast(Access)(tt - moyo.parser.Reserved.Public);
+}
 class DefineClass : Tree
 {
     public override @property NodeType Type(){return NodeType.DefineClass;}
@@ -269,6 +278,23 @@ class DefineClass : Tree
     mstring name;
     mstring[] extends;//今の所Interfaceはサポートしていないけど一応
     MClassInfo mci;
+    struct AccessPair(T)
+    {
+        T value;
+        Access access;
+    }
+    alias AccessPair!DefineVariable VariableAccess;
+    alias AccessPair!DefineFunction FunctionAccess;
+    Array!(VariableAccess) variables;
+    Array!(FunctionAccess) functions;
+    void add(DefineVariable dv, Access ac)
+    {
+        variables.insertBack(VariableAccess(dv,ac));
+    }
+    void add(DefineFunction df, Access ac)
+    {
+        functions.insertBack(FunctionAccess(df,ac));
+    }
 }
 struct StaticVariable
 {
