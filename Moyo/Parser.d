@@ -559,6 +559,9 @@ class Parser
                             nodes.insertBack(parseDefineFunction(tl));
                             continue;
                         }
+                    case Reserved.Class:
+                        nodes.insertBack(parseDefileClass(tl));
+                        continue;
                     default:
                 }
             }
@@ -588,7 +591,7 @@ class Parser
         tl = tl.next;
         if(tl.type != TokenType.BlockStart)
         {
-            Error(new ParseError("class定義は{で始まる必要があります。}", tl));
+            Error(new ParseError("class定義は{で始まる必要があります。}", dc));
         }
         Reserved access = Reserved.None;
         while(!tl.isEnd)
@@ -1377,7 +1380,12 @@ class Parser
         while(true)
         {
             auto c = getbackc();
-            if(c == '\n' || c == '\r' || c == wchar.init || s.position == 0)
+            if(c == '\n' || c == '\r')
+            {
+                getc();
+                break;
+            }
+            if(c == wchar.init || s.position == 0)
             {
                 break;
             }

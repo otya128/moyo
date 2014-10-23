@@ -1,1 +1,2 @@
 1.ToString().ToString().ToString().ToString().ToString().ToString.ToString().ToString()
+class
