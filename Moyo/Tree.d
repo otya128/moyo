@@ -9,6 +9,7 @@ enum NodeType
     Node,
     Constant,
     BinaryOperator,
+    UnaryOperator,
     Variable,
     FunctionArgs,
     Statements,
@@ -50,6 +51,11 @@ enum TokenType
     GreaterOrEqual,
     Dot,//.
 }
+bool[TokenType.max + 1] isUOP = 
+[
+    TokenType.Plus: true,
+    TokenType.Minus: false,
+];
 /+
 1+1
         +
@@ -99,6 +105,18 @@ class BinaryOperator : Expression
     {
         this.OP1 = op1;
         this.OP2 = op2;
+        this.type = tt;
+        this.token = tl;
+    }
+    TokenType type;
+}
+class UnaryOperator : Expression
+{//override
+    public override @property NodeType Type(){return NodeType.UnaryOperator;}
+    Expression OP;
+    public this(Expression op, TokenType tt, TokenList tl)
+    {
+        this.OP = op;
         this.type = tt;
         this.token = tl;
     }
@@ -277,7 +295,7 @@ class DefineClass : Tree
     }
     mstring name;
     mstring[] extends;//今の所Interfaceはサポートしていないけど一応
-    MClassInfo mci;
+    MClassInfo classInfo;
     struct AccessPair(T)
     {
         T value;
@@ -294,6 +312,15 @@ class DefineClass : Tree
     void add(DefineFunction df, Access ac)
     {
         functions.insertBack(FunctionAccess(df,ac));
+    }
+    ///継承されているクラスの場合はそのクラス定義を使います。
+    void createClassInfo(MClassInfo parent)
+    {
+        classInfo = new MClassInfo(parent);
+    }
+    void createClassInfo()
+    {
+        classInfo = new MClassInfo();
     }
 }
 struct StaticVariable

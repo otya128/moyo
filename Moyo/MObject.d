@@ -10,6 +10,7 @@ enum ObjectType : byte
     String,
     Function,
     ClassInstance,
+    Class,//type only
 }
 //size 64bit
 union MObjectUnion
@@ -441,6 +442,7 @@ class FunctionClassInfo : BaseClassInfo
         throw new VariableUndefinedException(name);
     }
 }
+__gshared MClassInfo objectClassInfo;
 ///class info
 class MClassInfo : BaseClassInfo
 {
@@ -448,12 +450,17 @@ class MClassInfo : BaseClassInfo
     Variables staticMembers;
     StaticVariable staticMembersType;
     StaticVariable members;
-    StaticVariable functions;
+    StaticVariable functionsType;
+    Variables functions;
     this(MClassInfo parent)
     {
         staticMembers.parent = &parent.staticMembers;
         members.parent = &parent.members;
         this.parentClass = parent;
+    }
+    this()
+    {
+        this(objectClassInfo);//親クラスをObjectに設定します。
     }
     MClass create()
     {
@@ -471,9 +478,15 @@ class MClassInfo : BaseClassInfo
     {
         members.define(name, vt);
     }
-    void addFunction(mstring name, ValueType vt)
+    void addFunction(mstring name, ValueType vt, ref MObject func)
     {
-        functions.define(name, vt);
+        functionsType.define(name, vt);
+        functions.define(name, func);
+    }
+    static this()
+    {
+        objectClassInfo = new MClassInfo();
+        objectClassInfo.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
     }
 }
 class MClass

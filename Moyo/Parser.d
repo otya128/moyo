@@ -20,6 +20,10 @@ bool isOperator(TokenType tt)
 {
     return !!(tt & 0b10000);
 }
+bool isUnaryOperator(TokenType tt)
+{
+    return isUOP[tt];
+}
 bool isExpression(TokenType tt)
 {
     return tt.isOperator() || tt <= TokenType.String;
@@ -39,6 +43,7 @@ enum Reserved : byte
     Public,
     Protected,
     Private,
+    New,
 }
 class TokenList
 {
@@ -55,6 +60,7 @@ class TokenList
             "public": Reserved.Public,
             "protected": Reserved.Protected,
             "private": Reserved.Private,
+            "new": Reserved.New,
         ];
         reservedTable.rehash();
         end = new TokenList();
@@ -433,6 +439,12 @@ class Parser
                 global.define(func.name, munc);
                 sv.define(func.name, ValueType(ObjectType.Function));
             }
+            if(exp.Type == NodeType.DefineClass)
+            {
+                auto dc = cast(DefineClass)exp;
+                dc.createClassInfo();//とりあえずまだ継承は未実装
+                sv.define(dc.name, ValueType(ObjectType.Class, dc.classInfo));
+            }
         }
         foreach(exp; roots)
         {
@@ -533,7 +545,7 @@ class Parser
                     {
                         return bo.valueType = (cast(FunctionClassInfo)op1.classInfo).retType;
                     }
-//                    Error(new ParseError("Function!?", bo));
+                    Error(new ParseError("Function!?", bo));
                     return ValueType.errorType;
                 }
                 if(bo.type == TokenType.Assign)
@@ -971,6 +983,10 @@ class Parser
     }
     void expression(ref TokenList tl, ref Expression tr)
     {
+        if(tl.type.isUnaryOperator)
+        {
+            ////Unarrrrrrrrrrrrrrrrrrrrrrrrrrrrry
+        }
         BinaryOperator bo = cast(BinaryOperator)tr;
         auto bino = bo;
         auto op = tl.type;
