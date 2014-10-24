@@ -600,6 +600,7 @@ class Parser
                             nodes.insertBack(parseDefineFunction(tl));
                             continue;
                         }
+                        break;
                     case Reserved.Class:
                         nodes.insertBack(parseDefileClass(tl));
                         continue;
