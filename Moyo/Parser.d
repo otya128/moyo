@@ -248,6 +248,13 @@ class Parser
                 to_s((cast(BinaryOperator)tr).OP2);
                 writef("],valueType:%s}", (cast(BinaryOperator)tr).valueType);
                 break;
+            case NodeType.UnaryOperator:
+                write("{type:");
+                write((cast(UnaryOperator)tr).type);
+                write(',');
+                to_s((cast(UnaryOperator)tr).OP);
+                writef(",valueType:%s}", (cast(UnaryOperator)tr).valueType);
+                break;
             case NodeType.Constant:
                 write((cast(Constant)tr).value);
                 break;
@@ -899,6 +906,12 @@ class Parser
     Expression parseExpression(ref TokenList tl)
     {
         Expression tree;
+        if(tl.type.isUnaryOperator)
+        {
+            auto type = tl;
+            tl = tl.next;
+            return new UnaryOperator(parseExpression(tl), type.type, type);
+        }
         Expression op1 = expression(tl);
         if(tl.isEnd) return op1;
         tl = tl.next;
