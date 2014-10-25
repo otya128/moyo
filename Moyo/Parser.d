@@ -997,14 +997,17 @@ class Parser
     }
     void expression(ref TokenList tl, ref Expression tr)
     {
-        if(tl.type.isUnaryOperator)
-        {
-            ////Unarrrrrrrrrrrrrrrrrrrrrrrrrrrrry
-        }
         BinaryOperator bo = cast(BinaryOperator)tr;
         auto bino = bo;
         auto op = tl.type;
         tl = tl.next;
+        if(tl.type.isUnaryOperator)
+        {
+            auto type = tl;
+            tl = tl.next;
+            (cast(BinaryOperator)tr).OP2 = new UnaryOperator(parseExpression(tl), type.type, type);
+            return;
+        }
         Expression op1 = expression(tl);
         if(tl.isEnd) return;
         tl = tl.next;
