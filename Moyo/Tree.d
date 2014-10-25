@@ -35,6 +35,7 @@ enum TokenType
     BlockEnd = 0b1000,//}
     Semicolon = 0b1001,//;
     Lambda = 0b1010,//=>
+    New = 0b1011,
     Plus=0b10000,
     OP = 0b10000,
     Minus=OP|1,

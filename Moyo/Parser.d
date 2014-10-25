@@ -906,8 +906,10 @@ class Parser
     Expression parseExpression(ref TokenList tl)
     {
         Expression tree;
-        if(tl.type.isUnaryOperator)
+        if(tl.type.isUnaryOperator || (tl.reserved == Reserved.New))
         {
+            if(tl.reserved == Reserved.New)
+                tl.type = TokenType.New;
             auto type = tl;
             tl = tl.next;
             return new UnaryOperator(parseExpression(tl), type.type, type);
@@ -1001,8 +1003,10 @@ class Parser
         auto bino = bo;
         auto op = tl.type;
         tl = tl.next;
-        if(tl.type.isUnaryOperator)
+        if(tl.type.isUnaryOperator || (tl.reserved == Reserved.New))
         {
+            if(tl.reserved == Reserved.New)
+                tl.type = TokenType.New;
             auto type = tl;
             tl = tl.next;
             (cast(BinaryOperator)tr).OP2 = new UnaryOperator(parseExpression(tl), type.type, type);
