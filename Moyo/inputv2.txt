@@ -1,5 +1,5 @@
 print(1+ +1)
-print(new int)
+print(new int())
 class test
 {
     int hoge

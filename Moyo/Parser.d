@@ -439,18 +439,33 @@ class Parser
         global.global = &global;
         foreach(exp; roots)
         {
-            if(exp.Type == NodeType.DefineFunction)
-            {
-                auto func = cast(DefineFunction)exp;
-                auto munc = MObject(new MFunction(func));
-                global.define(func.name, munc);
-                sv.define(func.name, ValueType(ObjectType.Function));
-            }
             if(exp.Type == NodeType.DefineClass)
             {
                 auto dc = cast(DefineClass)exp;
                 dc.createClassInfo();//とりあえずまだ継承は未実装
+
                 sv.define(dc.name, ValueType(ObjectType.Class, dc.classInfo));
+            }
+        }
+        foreach(exp; roots)
+        {
+            if(exp.Type == NodeType.DefineFunction)
+            {
+                auto func = cast(DefineFunction)exp;
+                func.valueType = StaticVariable.nameToType(func.type);
+                auto sts = cast(Statements)func.statement;
+                auto fc = new FunctionClassInfo();
+                foreach(ref i; func.args)
+                {
+                    auto type = StaticVariable.nameToType(i.type);
+                    fc.args.insertBack(type);
+                    sts.variables.define(i.name, type);
+                }
+                fc.retType = func.valueType;
+                sv.define(func.name, ValueType(ObjectType.Function, fc));
+                auto munc = MObject(new MFunction(func));
+                global.define(func.name, munc);
+                sv.define(func.name, ValueType(ObjectType.Function));
             }
         }
         foreach(exp; roots)
@@ -507,17 +522,6 @@ class Parser
                 return typeInference((cast(Return)statement).expression, variable);
             case NodeType.DefineFunction:
                 auto df = cast(DefineFunction)statement;
-                df.valueType = StaticVariable.nameToType(df.type);
-                auto sts = cast(Statements)df.statement;
-                auto fc = new FunctionClassInfo();
-                foreach(ref i; df.args)
-                {
-                    auto type = StaticVariable.nameToType(i.type);
-                    fc.args.insertBack(type);
-                    sts.variables.define(i.name, type);
-                }
-                fc.retType = df.valueType;
-                variable.define(df.name, ValueType(ObjectType.Function, fc));
                 typeInference(df.statement, variable);
                 return ValueType.errorType;
             default:
@@ -901,7 +905,7 @@ class Parser
     //lambda
     Expression nonOpExpression(ref TokenList tl, Expression op1)
     {
-        return op1;
+         return op1;
     }
     Expression parseExpression(ref TokenList tl)
     {
