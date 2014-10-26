@@ -443,7 +443,6 @@ class Parser
             {
                 auto dc = cast(DefineClass)exp;
                 dc.createClassInfo();//とりあえずまだ継承は未実装
-
                 sv.define(dc.name, ValueType(ObjectType.Class, dc.classInfo));
             }
         }
@@ -452,20 +451,23 @@ class Parser
             if(exp.Type == NodeType.DefineFunction)
             {
                 auto func = cast(DefineFunction)exp;
-                func.valueType = StaticVariable.nameToType(func.type);
-                auto sts = cast(Statements)func.statement;
-                auto fc = new FunctionClassInfo();
-                foreach(ref i; func.args)
+                typeInference(func, sv);
+            }
+            else
+            if(exp.Type == NodeType.DefineClass)
+            {
+                auto dc = cast(DefineClass)exp;
+                auto classInfo = dc.classInfo;
+                foreach(mem; dc.variables)
                 {
-                    auto type = StaticVariable.nameToType(i.type);
-                    fc.args.insertBack(type);
-                    sts.variables.define(i.name, type);
+                    DefineVariable dv = mem.value;
+                    foreach(var; dv.variables)
+                        classInfo.addMember(var.name, sv.nameToType(dv.typeName));
                 }
-                fc.retType = func.valueType;
-                sv.define(func.name, ValueType(ObjectType.Function, fc));
-                auto munc = MObject(new MFunction(func));
-                global.define(func.name, munc);
-                sv.define(func.name, ValueType(ObjectType.Function));
+                foreach(fun; dc.functions)
+                {
+                    DefineFunction df = fun.value;
+                }
             }
         }
         foreach(exp; roots)
@@ -491,6 +493,23 @@ class Parser
         }
         writeln();
         writeln(ret);
+    }
+    void typeInference(DefineFunction func, StaticVariable variable)
+    {
+        func.valueType = StaticVariable.nameToType(func.type);
+        auto sts = cast(Statements)func.statement;
+        auto fc = new FunctionClassInfo();
+        foreach(ref i; func.args)
+        {
+            auto type = StaticVariable.nameToType(i.type);
+            fc.args.insertBack(type);
+            sts.variables.define(i.name, type);
+        }
+        fc.retType = func.valueType;
+        variable.define(func.name, ValueType(ObjectType.Function, fc));
+        auto munc = MObject(new MFunction(func));
+        global.define(func.name, munc);
+        variable.define(func.name, ValueType(ObjectType.Function));
     }
     ///文の型推論を行います。
     ValueType typeInference(Tree statement, ref StaticVariable variable)

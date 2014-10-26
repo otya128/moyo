@@ -29,6 +29,7 @@ union MObjectUnion
     ulong UInt64;
     mstring String;
     Function Func;
+    MClass Object;
 }
 //alias typeof(&opAddInt32) operator;//MObject function (ref MObject, ref MObject) operator;
 alias moyo.interpreter.Interpreter Interpreter;
@@ -41,21 +42,22 @@ class MObject__vfptr
     //__vtbl
     mstring function(ref MObject) toString;
     alias operator = MObject function(ref MObject, ref MObject);
-    operator opAdd;
-    operator opSub;
-    operator opMul;
-    operator opDiv;
-    operator opMod;
-    operator opEquals;
-    operator opNotEquals;
-    operator opLess;
-    operator opGreater;
-    operator opLessOrEqual;
-    operator opGreaterOrEqual;
+    operator opAdd = &NoImplFunctionA2;
+    operator opSub = &NoImplFunctionA2;
+    operator opMul = &NoImplFunctionA2;
+    operator opDiv = &NoImplFunctionA2;
+    operator opMod = &NoImplFunctionA2;
+    operator opEquals = &NoImplFunctionA2;
+    operator opNotEquals = &NoImplFunctionA2;
+    operator opLess = &NoImplFunctionA2;
+    operator opGreater = &NoImplFunctionA2;
+    operator opLessOrEqual = &NoImplFunctionA2;
+    operator opGreaterOrEqual = &NoImplFunctionA2;
     bool function(ref MObject) opBool;
     MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall;
     ObjectType type;
     BaseClassInfo classInfo;
+    protected this(){};
     public this(ObjectType type, BaseClassInfo info, mstring function(ref MObject) to_s,
                 operator opAdd = &NoImplFunctionA2,
                 operator opSub = &NoImplFunctionA2,
@@ -127,6 +129,7 @@ MObject__vfptr[] initvfptrs(MObject__vfptr[] vfptrs)
                                                            (ref MObject op1, ref MObject op2)=>MObject(op1.value.String == op2.value.String)
                                                                );
     vfptrs[ObjectType.Function] = new MObject__vfptr(&toStringFunction, &Function.opCallFunction);
+    vfptrs[ObjectType.ClassInstance] = new MClass__vfptr();
     return vfptrs;
 }
 struct MObject
@@ -213,7 +216,7 @@ struct MObject
     }
     public MObject opDot(mstring name)
     {
-        return vfptrs[type].classInfo.getMember(name);
+        return vfptrs[type].classInfo.getMember(name, this);
     }
 }
 MObject Void = MObject();
@@ -383,8 +386,8 @@ class MFunction : Function
 }
 abstract class BaseClassInfo
 {
-    ValueType getMemberType(mstring str);
-    MObject getMember(mstring str);
+    ValueType getMemberType(mstring);
+    MObject getMember(mstring, ref MObject);
 }
 //primitive
 alias moyo.tree.StaticVariable StaticVariable;
@@ -411,7 +414,7 @@ class ObjectClassInfo : BaseClassInfo
     {
         return membersType.get(str);
     }
-    override MObject getMember(mstring str)
+    override MObject getMember(mstring str, ref MObject)
     {
         return members.get(str);
     }
@@ -433,7 +436,7 @@ class FunctionClassInfo : BaseClassInfo
         }
         return ValueType.errorType;
     }
-    override MObject getMember(mstring name)
+    override MObject getMember(mstring name, ref MObject)
     {
         if(name == "ToString")
         {
@@ -449,13 +452,11 @@ class MClassInfo : BaseClassInfo
     MClassInfo parentClass;
     Variables staticMembers;
     StaticVariable staticMembersType;
-    StaticVariable members;
-    StaticVariable functionsType;
-    Variables functions;
+    MInstanceInfo instance;
     this(MClassInfo parent)
     {
+        instance = new MInstanceInfo(parent.instance);
         staticMembers.parent = &parent.staticMembers;
-        members.parent = &parent.members;
         this.parentClass = parent;
     }
     this()
@@ -470,9 +471,28 @@ class MClassInfo : BaseClassInfo
     {
         return staticMembersType.get(str);
     }
-    override MObject getMember(mstring str)
+    override MObject getMember(mstring str, ref MObject)
     {
         return staticMembers.get(str);
+    }
+    static this()
+    {
+        objectClassInfo = new MClassInfo();
+        objectClassInfo.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
+    }
+}
+class MInstanceInfo
+{
+    StaticVariable members;
+    StaticVariable functionsType;
+    Variables functions;
+    MInstanceInfo parent;
+    this(MInstanceInfo para)
+    {
+        parent = para;
+        members.parent = &parent.members;
+        functions.parent = &parent.functions;
+        functionsType.parent = &parent.functionsType;
     }
     void addMember(mstring name, ValueType vt)
     {
@@ -483,11 +503,6 @@ class MClassInfo : BaseClassInfo
         functionsType.define(name, vt);
         functions.define(name, func);
     }
-    static this()
-    {
-        objectClassInfo = new MClassInfo();
-        objectClassInfo.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
-    }
 }
 class MClass
 {
@@ -495,6 +510,17 @@ class MClass
     this(MClassInfo classInfo)
     {
         this.classInfo = classInfo;
+    }
+}
+class MClass__vfptr : MObject__vfptr
+{
+    this()
+    {
+        this.type = ObjectType.ClassInstance;
+    }
+    MObject opDot(mstring name)
+    {
+     return MObject();   
     }
 }
 template GenerateTypeOperator(const char[] op)
