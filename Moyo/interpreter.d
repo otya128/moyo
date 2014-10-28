@@ -327,6 +327,19 @@ class Interpreter
                     default:
                 }
                 throw new Exception("What????");
+            case NodeType.UnaryOperator:
+                auto uo = cast(UnaryOperator)tree;
+                if(uo.type == TokenType.New)
+                {
+                    //構文解析時に検証したいので特にチェックを入れない(まだclass系の解析は実装していない).
+                    auto cls = uo.OP;
+                    auto ctor = cast(BinaryOperator)cls;
+                    auto var = cast(Variable)ctor.OP1;
+                    //型用にしたいけどとりあえず通常の
+                    auto type = variable.get(var.name);
+                    return MObject(type.value.Class.classInfo.instance.create());
+                }
+                throw new Exception("What????UnaryOperator");
             case NodeType.Constant:
                 return (cast(Constant)tree).value;
             default:

@@ -317,11 +317,11 @@ class DefineClass : Tree
     ///継承されているクラスの場合はそのクラス定義を使います。
     void createClassInfo(MClassInfo parent)
     {
-        classInfo = new MClassInfo(parent);
+        classInfo = new MClassInfo(parent, this.name);
     }
     void createClassInfo()
     {
-        classInfo = new MClassInfo();
+        classInfo = new MClassInfo(this.name);
     }
 }
 struct StaticVariable

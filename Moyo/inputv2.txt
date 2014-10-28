@@ -1,4 +1,5 @@
 
+print(new test())
 print(1.ToString())
 class test
 {

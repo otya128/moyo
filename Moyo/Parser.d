@@ -468,6 +468,9 @@ class Parser
                 {
                     DefineFunction df = fun.value;
                 }
+                sv.define(dc.name, ValueType(ObjectType.Class, classInfo));
+                //とりあえず
+                global.define(dc.name, MObject(new MClass(classInfo)));
             }
         }
         foreach(exp; roots)
