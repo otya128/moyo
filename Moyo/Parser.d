@@ -462,7 +462,7 @@ class Parser
                 {
                     DefineVariable dv = mem.value;
                     foreach(var; dv.variables)
-                        classInfo.addMember(var.name, sv.nameToType(dv.typeName));
+                        classInfo.instance.addMember(var.name, sv.nameToType(dv.typeName));
                 }
                 foreach(fun; dc.functions)
                 {

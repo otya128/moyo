@@ -455,9 +455,12 @@ class MClassInfo : BaseClassInfo
     MInstanceInfo instance;
     this(MClassInfo parent)
     {
-        instance = new MInstanceInfo(parent.instance);
-        staticMembers.parent = &parent.staticMembers;
-        this.parentClass = parent;
+        if(parent)
+        {
+            instance = new MInstanceInfo(parent.instance);
+            staticMembers.parent = &parent.staticMembers;
+            this.parentClass = parent;
+        }
     }
     this()
     {
@@ -478,7 +481,7 @@ class MClassInfo : BaseClassInfo
     static this()
     {
         objectClassInfo = new MClassInfo();
-        objectClassInfo.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
+        objectClassInfo.instance.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
     }
 }
 class MInstanceInfo
