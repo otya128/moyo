@@ -435,6 +435,8 @@ class Parser
         writeln();
         StaticVariable sv = StaticVariable();
         sv.initGlobal();
+        StaticVariable svt = StaticVariable();
+        svt.initTypeGlobal();
         global.initGlobal();
         global.global = &global;
         foreach(exp; roots)
@@ -451,7 +453,7 @@ class Parser
             if(exp.Type == NodeType.DefineFunction)
             {
                 auto func = cast(DefineFunction)exp;
-                typeInference(func, sv);
+                typeInference(func, sv, svt);
             }
             else
             if(exp.Type == NodeType.DefineClass)
@@ -462,20 +464,20 @@ class Parser
                 {
                     DefineVariable dv = mem.value;
                     foreach(var; dv.variables)
-                        classInfo.instance.addMember(var.name, sv.nameToType(dv.typeName));
+                        classInfo.instance.addMember(var.name, sv.nameToType(dv.typeName, svt));
                 }
                 foreach(fun; dc.functions)
                 {
                     DefineFunction df = fun.value;
                 }
-                sv.define(dc.name, ValueType(ObjectType.Class, classInfo));
+                svt.define(dc.name, ValueType(ObjectType.ClassInstance, classInfo.instance));
                 //とりあえず
                 global.define(dc.name, MObject(new MClass(classInfo)));
             }
         }
         foreach(exp; roots)
         {
-            typeInference(exp, sv);
+            typeInference(exp, sv, svt);
         }
         writeln("===TypeInference===");
         foreach(exp; roots)
@@ -497,16 +499,16 @@ class Parser
         writeln();
         writeln(ret);
     }
-    void typeInference(DefineFunction func, StaticVariable variable)
+    void typeInference(DefineFunction func, ref StaticVariable variable, ref StaticVariable type)
     {
-        func.valueType = StaticVariable.nameToType(func.type);
+        func.valueType = variable.nameToType(func.type, type);
         auto sts = cast(Statements)func.statement;
         auto fc = new FunctionClassInfo();
         foreach(ref i; func.args)
         {
-            auto type = StaticVariable.nameToType(i.type);
-            fc.args.insertBack(type);
-            sts.variables.define(i.name, type);
+            auto ftype = variable.nameToType(i.type, type);
+            fc.args.insertBack(ftype);
+            sts.variables.define(i.name, ftype);
         }
         fc.retType = func.valueType;
         variable.define(func.name, ValueType(ObjectType.Function, fc));
@@ -515,36 +517,36 @@ class Parser
         variable.define(func.name, ValueType(ObjectType.Function));
     }
     ///文の型推論を行います。
-    ValueType typeInference(Tree statement, ref StaticVariable variable)
+    ValueType typeInference(Tree statement, ref StaticVariable variable, ref StaticVariable type)
     {
         switch(statement.Type)
         {
             case NodeType.DefineVariable:
                 DefineVariable dv = cast(DefineVariable)statement;
-                dv.valueType = typeInference(dv.initExpressions[0], variable);
+                dv.valueType = typeInference(dv.initExpressions[0], variable, type);
                 variable.define(dv.variables[0].name, dv.valueType);
                 for(int i = 1;i < dv.variables.length;i++)
                 {
-                    auto vt = typeInference(dv.initExpressions[i], variable);
+                    auto vt = typeInference(dv.initExpressions[i], variable, type);
                     if(vt != dv.valueType) Error(new ParseError("型が違う"));
                     variable.define(dv.variables[i].name, dv.valueType);
                 }
                 return dv.valueType;
             case NodeType.ExpressionStatement:
                 ExpressionStatement es = cast(ExpressionStatement)statement;
-                return typeInference(es.expression, variable);
+                return typeInference(es.expression, variable, type);
             case NodeType.Statements:
                 auto ss = cast(Statements)statement;
                 foreach(s; ss.statements)
                 {
-                    typeInference(s, ss.variables);
+                    typeInference(s, ss.variables, type);
                 }
                 return ValueType.errorType;
             case NodeType.Return:
-                return typeInference((cast(Return)statement).expression, variable);
+                return typeInference((cast(Return)statement).expression, variable, type);
             case NodeType.DefineFunction:
                 auto df = cast(DefineFunction)statement;
-                typeInference(df.statement, variable);
+                typeInference(df.statement, variable, type);
                 return ValueType.errorType;
             default:
                 return ValueType.errorType;
@@ -552,13 +554,13 @@ class Parser
     }
     ///式の型推論を行います。
     ///ついでに定数式展開(デバッグの支障になるからまだやらない)
-    ValueType typeInference(Expression exp, ref StaticVariable variable)
+    ValueType typeInference(Expression exp, ref StaticVariable variable, ref StaticVariable type)
     {
         switch(exp.Type)
         {
             case NodeType.BinaryOperator:
                 BinaryOperator bo = cast(BinaryOperator)exp;
-                ValueType op1 = typeInference(bo.OP1, variable);
+                ValueType op1 = typeInference(bo.OP1, variable, type);
                 if(bo.type == TokenType.Dot)
                 {
                     if(bo.OP2.Type != NodeType.Variable)
@@ -569,7 +571,7 @@ class Parser
                     mstring name = (cast(Variable)bo.OP2).name;
                     return bo.valueType = op1.opDot(name);
                 }
-                ValueType op2 = typeInference(bo.OP2, variable);
+                ValueType op2 = typeInference(bo.OP2, variable, type);
                 if(bo.type == TokenType.LeftParenthesis)
                 {
                     //関数呼び出し
@@ -601,6 +603,26 @@ class Parser
                     }
                 }
                 return bo.valueType = AutoOperator(op1, op2, bo.type);
+            case NodeType.UnaryOperator:
+                auto uo = cast(UnaryOperator)exp;
+                if(uo.type == TokenType.New)
+                {
+                    auto callctor = cast(BinaryOperator)uo.OP;
+                    //uo.OPがBinaryOperatorであり、それが関数呼び出しであり、それのOP1が変数である場合
+                    if(callctor && callctor.type == TokenType.FuncCall)
+                    {
+                        auto var = cast(Variable)callctor.OP1;
+                        auto args = cast(FunctionArgs)callctor.OP2;
+                        if(var && args)
+                        {
+                            //TODO: コンストラクタ引数の型のチェックは未実装
+                            return callctor.valueType = variable.nameToType(var.name, type);
+                        }
+                    }
+                    Error("コンストラクタ呼び出しが不正です。", uo);
+                    return ValueType.errorType;
+                }
+                return ValueType.errorType;
             case NodeType.Constant:
                 return exp.valueType;
             case NodeType.Variable:
@@ -610,7 +632,7 @@ class Parser
                 auto fa = cast(FunctionArgs)exp;
                 foreach(f; fa.args)
                 {
-                    typeInference(f, variable);
+                    typeInference(f, variable, type);
                 }
                 return ValueType.errorType;
             default:

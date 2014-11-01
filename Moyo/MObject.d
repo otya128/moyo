@@ -114,6 +114,8 @@ class MObject__vfptr
 MObject__vfptr[] vfptrs;//[ObjectType.max + 1]
 MObject__vfptr[] initvfptrs(MObject__vfptr[] vfptrs)
 {
+    objectClassInfo = new MClassInfo("Object");
+    objectClassInfo.instance.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
     vfptrs[ObjectType.Void] = new MObject__vfptr(ObjectType.Void, new ObjectClassInfo(), &toStringTypename!"Void");
     vfptrs[ObjectType.Object] = new MObject__vfptr(ObjectType.Object, new ObjectClassInfo(), &toStringObject, &NoImplFunctionA2);
     vfptrs[ObjectType.Int] = new MObject__vfptr(ObjectType.Int, new ObjectClassInfo(), &toStringInt32, &opAddInt32, &opSubInt32, &opMulInt32, &opDivInt32, &opModInt32,
@@ -500,8 +502,6 @@ class MClassInfo : BaseClassInfo
     }
     static this()
     {
-        objectClassInfo = new MClassInfo("Object");
-        objectClassInfo.instance.addFunction("ToString", ObjectClassInfo.retStringArgVoid, ObjectClassInfo.to_s);
     }
 }
 class MInstanceInfo : BaseClassInfo
@@ -581,6 +581,7 @@ class MClassInstance__vfptr : MObject__vfptr
     {
         toString = &toStr;
         this.type = ObjectType.ClassInstance;
+        this.classInfo = objectClassInfo.instance;
     }
     MObject opDot(mstring name, ref MObject op)
     {
@@ -709,6 +710,10 @@ struct ValueType
     }
     public ValueType opDot(mstring name)
     {
+        if(this.classInfo)
+        {
+            return this.classInfo.getMemberType(name);
+        }
         return vfptrs[this.type].classInfo.getMemberType(name);
     }
     //クラスなどを実装した場合ここに記述

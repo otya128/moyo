@@ -44,6 +44,7 @@ enum TokenType
     Mod=OP|4,
     Assign = OP | 5,
     LeftParenthesis = OP | 6,//(
+    FuncCall = OP | 6,//(
     Equals = OP | 7,//==
     NotEquals,
     Less,
@@ -386,6 +387,10 @@ struct StaticVariable
         var["false"] = ValueType(ObjectType.Boolean);
         var.rehash();
     }
+    void initTypeGlobal()
+    {
+        this.var = types;
+    }
     static ValueType[mstring] types;
     static this()
     {
@@ -396,9 +401,9 @@ struct StaticVariable
         ];
         types.rehash();
     }
-    static ValueType nameToType(mstring mstr)
+    ValueType nameToType(mstring mstr, ref StaticVariable type)
     {
-        ValueType* ms = (mstr in types);
+        ValueType* ms = (mstr in type.var);
         return ms ? *ms : ValueType.errorType;
     }
 }

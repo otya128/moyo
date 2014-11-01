@@ -1,5 +1,8 @@
 
 print(new test())
+
+var tst = new test()
+print(tst.hoge)
 print(1.ToString())
 class test
 {

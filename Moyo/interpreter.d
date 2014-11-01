@@ -24,6 +24,18 @@ template GenOperatorFunction(TokenType type)
         "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
         "return op1.op" ~ type.to!(const char[]) ~ "(op2);";
 }
+template GenUnaryOperatorFunction(TokenType type, string op)
+{
+    const char[] GenOperatorFunction =
+        "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
+        "return op" ~ op ~ "(op);";
+}
+template GenUnaryOperatorFunction(TokenType type)
+{
+    const char[] GenOperatorFunction =
+        "case TokenType." ~ type.to!(const char[]) ~ " - TokenType.OP:" ~  
+        "return op" ~ type.to!(const char[]) ~ "(op);";
+}
 T AutoOperator(T)(T op1, T op2, TokenType tt)
 {
     switch(tt - TokenType.OP)
@@ -40,6 +52,15 @@ T AutoOperator(T)(T op1, T op2, TokenType tt)
         mixin(GenOperatorFunction!(TokenType.Greater));
         mixin(GenOperatorFunction!(TokenType.LessOrEqual));
         mixin(GenOperatorFunction!(TokenType.GreaterOrEqual));
+        default:
+            return T();
+    }
+}
+T AutoUnaryOperator(T)(T op, TokenType tt)
+{
+    switch(tt - TokenType.OP)
+    {
+        mixin(GenUnaryOperatorFunction!(TokenType.New));
         default:
             return T();
     }
