@@ -609,11 +609,11 @@ class MInstanceInfo : BaseClassInfo
     }
     override ValueType getFunctionType(mstring name)
     {
-        return functionsType.tryGet(name);
+        return functionsType.get(name);
     }
     override MObject getFunction(mstring name, ref MObject v)
     {
-        return functions.get(name);
+        return v.value.Object.classInfo.functions.get(name);
     }
 }
 class MClass

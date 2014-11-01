@@ -2,6 +2,7 @@
 print(new test())
 
 var tst = new test()
+print(tst.fuga())
 tst.hoge=10
 tst.hu = new test()
 print(tst.hoge)

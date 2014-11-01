@@ -470,6 +470,10 @@ class Parser
                 foreach(fun; dc.functions)
                 {
                     DefineFunction df = fun.value;
+                    typeInference(df, sv, svt);
+                    MObject munc;
+                    typeInference(df, sv, svt, munc);
+                    classInfo.instance.addFunction(df.name, df.valueType, munc);
                 }
                 //とりあえず
                 global.define(dc.name, MObject(new MClass(classInfo)));
@@ -514,7 +518,20 @@ class Parser
         variable.define(func.name, ValueType(ObjectType.Function, fc));
         auto munc = MObject(new MFunction(func));
         global.define(func.name, munc);
-        variable.define(func.name, ValueType(ObjectType.Function));
+    }
+    void typeInference(DefineFunction func, ref StaticVariable variable, ref StaticVariable type, ref MObject munc)
+    {
+        func.valueType = variable.nameToType(func.type, type);
+        auto sts = cast(Statements)func.statement;
+        auto fc = new FunctionClassInfo();
+        foreach(ref i; func.args)
+        {
+            auto ftype = variable.nameToType(i.type, type);
+            fc.args.insertBack(ftype);
+            sts.variables.define(i.name, ftype);
+        }
+        fc.retType = func.valueType;
+        munc = MObject(new MFunction(func));
     }
     ///文の型推論を行います。
     ValueType typeInference(Tree statement, ref StaticVariable variable, ref StaticVariable type)
@@ -560,33 +577,11 @@ class Parser
         {
             case NodeType.BinaryOperator:
                 BinaryOperator bo = cast(BinaryOperator)exp;
-                ValueType op1 = typeInference(bo.OP1, variable, type);
-                if(bo.type == TokenType.Dot)
-                {
-                    if(bo.OP2.Type != NodeType.Variable)
-                    {
-                        Error(new ParseError("変数じゃない" ~ ((cast(Variable)bo.OP1).name.to!string)));
-                        return ValueType.errorType;
-                    }
-                    mstring name = (cast(Variable)bo.OP2).name;
-                    try
-                    {
-                        return bo.valueType = op1.opDot(name);
-                    }
-                    catch(VariableUndefinedException VUE)
-                    {
-                        Error(VUE.msg, bo);
-                    }
-                }
-                ValueType op2 = typeInference(bo.OP2, variable, type);
+                ValueType op2;
+                ValueType op1;
                 if(bo.type == TokenType.LeftParenthesis)
                 {
-                    //関数呼び出し
-                    //返り血が分っているのであればそれを返す、分かっていないなら今から解析
-                    if(op1.type == ObjectType.Function)
-                    {
-                        return bo.valueType = (cast(FunctionClassInfo)op1.classInfo).retType;
-                    }
+                    op2 = typeInference(bo.OP2, variable, type);
                     BinaryOperator dot = cast(BinaryOperator)bo.OP1;
                     //bo.OP1(bo.OP1.OP1, bo.OP1.OP2 (hoge.huga))
                     if(dot && dot.type == TokenType.Dot)
@@ -609,9 +604,35 @@ class Parser
                             return ValueType.errorType;
                         }
                     }
+                    //関数呼び出し
+                    //返り血が分っているのであればそれを返す、分かっていないなら今から解析
+                    op1 = typeInference(bo.OP1, variable, type);
+                    if(op1.type == ObjectType.Function)
+                    {
+                        return bo.valueType = (cast(FunctionClassInfo)op1.classInfo).retType;
+                    }
                     Error(new ParseError("Function!?", bo));
                     return ValueType.errorType;
                 }
+                op1 = typeInference(bo.OP1, variable, type);
+                if(bo.type == TokenType.Dot)
+                {
+                    if(bo.OP2.Type != NodeType.Variable)
+                    {
+                        Error(new ParseError("変数じゃない" ~ ((cast(Variable)bo.OP1).name.to!string)));
+                        return ValueType.errorType;
+                    }
+                    mstring name = (cast(Variable)bo.OP2).name;
+                    try
+                    {
+                        return bo.valueType = op1.opDot(name);
+                    }
+                    catch(VariableUndefinedException VUE)
+                    {
+                        Error(VUE.msg, bo);
+                    }
+                }
+                op2 = typeInference(bo.OP2, variable, type);
                 if(bo.type == TokenType.Assign)
                 {
                     if(bo.OP1.Type != NodeType.Variable)
