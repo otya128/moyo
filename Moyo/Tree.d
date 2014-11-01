@@ -344,7 +344,7 @@ struct StaticVariable
         ValueType* mptr;
         if((mptr = str in var) is null)
         {
-            if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+            if(!parent) return null;//throw new moyo.interpreter.VariableUndefinedException(str);
             return parent.getptr(str);
         }
         else

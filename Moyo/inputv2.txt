@@ -3,7 +3,10 @@ print(new test())
 
 var tst = new test()
 tst.hoge=10
+tst.hu = new test()
 print(tst.hoge)
+tst.hu.hoge=2
+print(tst.hu.hoge)
 print(1.ToString())
 class test
 {
@@ -14,4 +17,5 @@ class test
     {
         return far.ToString()
     }
+	test hu
 }

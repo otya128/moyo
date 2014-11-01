@@ -569,7 +569,14 @@ class Parser
                         return ValueType.errorType;
                     }
                     mstring name = (cast(Variable)bo.OP2).name;
-                    return bo.valueType = op1.opDot(name);
+                    try
+                    {
+                        return bo.valueType = op1.opDot(name);
+                    }
+                    catch(VariableUndefinedException VUE)
+                    {
+                        Error(VUE.msg, bo);
+                    }
                 }
                 ValueType op2 = typeInference(bo.OP2, variable, type);
                 if(bo.type == TokenType.LeftParenthesis)
@@ -597,6 +604,11 @@ class Parser
                             {
                                 Error(new ParseError("無効な代入", bo));
                                 return ValueType.errorType;
+                            }
+                            if(dotbo.valueType != op2)
+                            {
+                                Error(new ParseError("変数の型が違います", bo));
+                                return dotbo.valueType;
                             }
                             return dotbo.valueType;
                         }
@@ -640,7 +652,13 @@ class Parser
                 return exp.valueType;
             case NodeType.Variable:
                 auto v = cast(Variable)exp;
-                return v.valueType = variable.get(v.name);
+                auto var = variable.getptr(v.name);
+                if(!var) 
+                {
+                    Error("変数が定義されていません。" ~ v.name.to!string, v);
+                    return ValueType.errorType;
+                }
+                return v.valueType = *var;
             case NodeType.FunctionArgs:
                 auto fa = cast(FunctionArgs)exp;
                 foreach(f; fa.args)
