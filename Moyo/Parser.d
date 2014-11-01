@@ -460,6 +460,7 @@ class Parser
             {
                 auto dc = cast(DefineClass)exp;
                 auto classInfo = dc.classInfo;
+                svt.define(dc.name, ValueType(ObjectType.ClassInstance, classInfo.instance));
                 foreach(mem; dc.variables)
                 {
                     DefineVariable dv = mem.value;
@@ -470,7 +471,6 @@ class Parser
                 {
                     DefineFunction df = fun.value;
                 }
-                svt.define(dc.name, ValueType(ObjectType.ClassInstance, classInfo.instance));
                 //とりあえず
                 global.define(dc.name, MObject(new MClass(classInfo)));
             }
@@ -598,19 +598,19 @@ class Parser
                         if(dotbo && dotbo.type == TokenType.Dot)
                         {
                             //bo.valueType = 
-                            typeInference(dotbo, variable, type);
+                            auto typevar = typeInference(dotbo, variable, type);
                             bo.valueType = dotbo.valueType;
                             if(bo.valueType.isErrorType)
                             {
                                 Error(new ParseError("無効な代入", bo));
                                 return ValueType.errorType;
                             }
-                            if(dotbo.valueType != op2)
+                            if(typevar != op2)
                             {
                                 Error(new ParseError("変数の型が違います", bo));
-                                return dotbo.valueType;
+                                return typevar;
                             }
-                            return dotbo.valueType;
+                            return typevar;//dotbo.valueType;
                         }
                         Error(new ParseError("無効な代入", bo));
                         return ValueType.errorType;

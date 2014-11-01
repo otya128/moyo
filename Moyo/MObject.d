@@ -695,6 +695,10 @@ struct ValueType
     {
         return this.type == ObjectType.Void;
     }
+    public bool opEquals(ref const ValueType rhs) const
+    {
+        return this.type == rhs.type && this.classInfo == rhs.classInfo;
+    }
     public ValueType opAdd(ValueType op)
     {
         switch(type)
