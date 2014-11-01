@@ -587,18 +587,31 @@ class Parser
                 {
                     if(bo.OP1.Type != NodeType.Variable)
                     {
-                        Error(new ParseError("無効な代入"));
+                        auto dotbo = cast(BinaryOperator)bo.OP1;
+                        if(dotbo && dotbo.type == TokenType.Dot)
+                        {
+                            //bo.valueType = 
+                            typeInference(dotbo, variable, type);
+                            bo.valueType = dotbo.valueType;
+                            if(bo.valueType.isErrorType)
+                            {
+                                Error(new ParseError("無効な代入", bo));
+                                return ValueType.errorType;
+                            }
+                            return dotbo.valueType;
+                        }
+                        Error(new ParseError("無効な代入", bo));
                         return ValueType.errorType;
                     }
                     auto ptr = variable.getptr((cast(Variable)bo.OP1).name);
                     if(!ptr)
                     {
-                        Error(new ParseError("存在しない変数" ~ (cast(Variable)bo.OP1).name.to!string));
+                        Error(new ParseError("存在しない変数" ~ (cast(Variable)bo.OP1).name.to!string, bo));
                         return ValueType.errorType;
                     }
                     if((*ptr).type != op2.type)
                     {
-                        Error(new ParseError("変数の型が違います" ~ ((cast(Variable)bo.OP1).name.to!string)));
+                        Error(new ParseError("変数の型が違います" ~ ((cast(Variable)bo.OP1).name.to!string), bo));
                         return ValueType.errorType;
                     }
                 }

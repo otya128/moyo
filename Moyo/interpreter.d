@@ -293,6 +293,14 @@ class Interpreter
                     case TokenType.Assign:
                         Variable v = cast(Variable)bo.OP1;
                         MObject op2 = Eval(bo.OP2);
+                        if(!v)
+                        {
+                            BinaryOperator dot = cast(BinaryOperator)bo.OP1;
+                            MObject var = Eval(dot.OP1);
+                            v = cast(Variable)dot.OP2;
+                            var.opDot(v.name, op2);
+                            return op2;
+                        }
                         variable.set(v.name, op2);
                         return op2;
                     case TokenType.Dot:

@@ -228,6 +228,10 @@ struct MObject
     {
         return vfptrs[type].opGreaterOrEqual(this, op1);
     }
+    public void opDot(mstring name, ref MObject value)
+    {
+        vfptrs[type].classInfo.setMember(name, this, value);
+    }
     public MObject opDot(mstring name)
     {
         return vfptrs[type].classInfo.getMember(name, this);
@@ -402,6 +406,7 @@ abstract class BaseClassInfo
 {
     ValueType getMemberType(mstring);
     MObject getMember(mstring, ref MObject);
+    void setMember(mstring, ref MObject, ref MObject);
     //ValueType getFunctionType(mstring);
     //MObject getFunction(mstring, ref MObject);
 }
@@ -434,6 +439,10 @@ class ObjectClassInfo : BaseClassInfo
     {
         return members.get(str);
     }
+    override void setMember(mstring n, ref MObject, ref MObject)
+    {
+        members.get(n);
+    }
 }
 class FunctionClassInfo : BaseClassInfo
 {
@@ -458,6 +467,10 @@ class FunctionClassInfo : BaseClassInfo
         {
             return ObjectClassInfo.to_s;
         }
+        throw new VariableUndefinedException(name);
+    }
+    override void setMember(mstring name, ref MObject, ref MObject)
+    {
         throw new VariableUndefinedException(name);
     }
 }
@@ -500,6 +513,10 @@ class MClassInfo : BaseClassInfo
     {
         return staticMembers.get(str);
     }
+    override void setMember(mstring str, ref MObject, ref MObject v)
+    {
+        staticMembers.set(str, v);
+    }
     static this()
     {
     }
@@ -531,6 +548,11 @@ class MInstanceInfo : BaseClassInfo
     {
         return op.value.Object.getMember(str, op);
     }
+    override void setMember(mstring str, ref MObject op, ref MObject value)
+    {
+        op.value.Object.setMember(str, value);
+    }
+    
     void addMember(mstring name, ValueType vt)
     {
         members.define(name, vt);
@@ -569,6 +591,10 @@ class MClassInstance
     MObject getMember(mstring str, ref MObject op)
     {
         return members.get(str);
+    }
+    void setMember(mstring str, ref MObject value)
+    {
+        members.set(str, value);
     }
     mstring toClassString()
     {
@@ -664,6 +690,10 @@ struct ValueType
     {
         type = ot;
         classInfo = t;
+    }
+    public bool isErrorType()
+    {
+        return this.type == ObjectType.Void;
     }
     public ValueType opAdd(ValueType op)
     {
