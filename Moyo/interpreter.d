@@ -315,7 +315,7 @@ class Interpreter
                             auto bobo = cast(BinaryOperator)bo.OP1;
                             thisptr = Eval(bobo.OP1);
                             Variable v = cast(Variable)bobo.OP2;
-                            op1 = thisptr.opDot(v.name);
+                            op1 = thisptr.opDotFunc(v.name);
                         }
                         else
                         op1 = Eval(bo.OP1);

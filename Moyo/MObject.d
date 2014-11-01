@@ -237,6 +237,10 @@ struct MObject
     {
         return vfptrs[type].classInfo.getMember(name, this);
     }
+    public MObject opDotFunc(mstring name)
+    {
+        return vfptrs[type].classInfo.getFunction(name, this);
+    }
 }
 MObject Void = MObject();
 public int getInt32(ref MObject mobject)
