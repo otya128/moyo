@@ -31,6 +31,7 @@ union MObjectUnion
     Function Func;
     MClass Class;
     MClassInstance Object;
+    MObject[] Array;
 }
 //alias typeof(&opAddInt32) operator;//MObject function (ref MObject, ref MObject) operator;
 alias moyo.interpreter.Interpreter Interpreter;
@@ -407,8 +408,8 @@ abstract class BaseClassInfo
     ValueType getMemberType(mstring);
     MObject getMember(mstring, ref MObject);
     void setMember(mstring, ref MObject, ref MObject);
-    //ValueType getFunctionType(mstring);
-    //MObject getFunction(mstring, ref MObject);
+    ValueType getFunctionType(mstring);
+    MObject getFunction(mstring, ref MObject);
 }
 //primitive
 alias moyo.tree.StaticVariable StaticVariable;
@@ -428,12 +429,12 @@ class ObjectClassInfo : BaseClassInfo
     }
     this()
     {
-        membersType.define("ToString", retStringArgVoid);
-        members.define("ToString", to_s);
+        //membersType.define("ToString", retStringArgVoid);
+        //members.define("ToString", to_s);
     }
     override ValueType getMemberType(mstring str)
     {
-        return membersType.get(str);
+        return membersType.tryGet(str);
     }
     override MObject getMember(mstring str, ref MObject)
     {
@@ -443,6 +444,23 @@ class ObjectClassInfo : BaseClassInfo
     {
         members.get(n);
     }
+    override ValueType getFunctionType(mstring name)
+    {
+        if(name == "ToString")
+        {
+            return retStringArgVoid;
+        }
+        return ValueType.errorType;
+    }
+    override MObject getFunction(mstring name ,ref MObject)
+    {
+        if(name == "ToString")
+        {
+            return to_s;
+        }
+        throw new VariableUndefinedException(name);
+    }
+    
 }
 class FunctionClassInfo : BaseClassInfo
 {
@@ -455,22 +473,30 @@ class FunctionClassInfo : BaseClassInfo
     }
     override ValueType getMemberType(mstring name)
     {
+        return ValueType.errorType;
+    }
+    override MObject getMember(mstring name, ref MObject)
+    {
+        throw new VariableUndefinedException(name);
+    }
+    override void setMember(mstring name, ref MObject, ref MObject)
+    {
+        throw new VariableUndefinedException(name);
+    }
+    override ValueType getFunctionType(mstring name)
+    {
         if(name == "ToString")
         {
             return ObjectClassInfo.retStringArgVoid;
         }
         return ValueType.errorType;
     }
-    override MObject getMember(mstring name, ref MObject)
+    override MObject getFunction(mstring name ,ref MObject)
     {
         if(name == "ToString")
         {
             return ObjectClassInfo.to_s;
         }
-        throw new VariableUndefinedException(name);
-    }
-    override void setMember(mstring name, ref MObject, ref MObject)
-    {
         throw new VariableUndefinedException(name);
     }
 }
@@ -481,6 +507,8 @@ class MClassInfo : BaseClassInfo
     MClassInfo parentClass;
     Variables staticMembers;
     StaticVariable staticMembersType;
+    Variables staticFunctions;
+    StaticVariable staticFunctionsType;
     MInstanceInfo instance;
     mstring name;
     this(MClassInfo parent, mstring name)
@@ -507,7 +535,7 @@ class MClassInfo : BaseClassInfo
     }
     override ValueType getMemberType(mstring str)
     {
-        return staticMembersType.get(str);
+        return staticMembersType.tryGet(str);
     }
     override MObject getMember(mstring str, ref MObject)
     {
@@ -517,6 +545,15 @@ class MClassInfo : BaseClassInfo
     {
         staticMembers.set(str, v);
     }
+    override ValueType getFunctionType(mstring name)
+    {
+        return staticFunctionsType.tryGet(name);
+    }
+    override MObject getFunction(mstring name, ref MObject v)
+    {
+        return staticFunctions.get(name);
+    }
+    
     static this()
     {
     }
@@ -542,7 +579,7 @@ class MInstanceInfo : BaseClassInfo
     }
     override ValueType getMemberType(mstring str)
     {
-        return members.get(str);
+        return members.tryGet(str);
     }
     override MObject getMember(mstring str, ref MObject op)
     {
@@ -565,6 +602,14 @@ class MInstanceInfo : BaseClassInfo
     MClassInstance create()
     {
         return new MClassInstance(this);
+    }
+    override ValueType getFunctionType(mstring name)
+    {
+        return functionsType.tryGet(name);
+    }
+    override MObject getFunction(mstring name, ref MObject v)
+    {
+        return functions.get(name);
     }
 }
 class MClass
@@ -749,6 +794,14 @@ struct ValueType
             return this.classInfo.getMemberType(name);
         }
         return vfptrs[this.type].classInfo.getMemberType(name);
+    }
+    public ValueType opDotFunc(mstring name)
+    {
+        if(this.classInfo)
+        {
+            return this.classInfo.getFunctionType(name);
+        }
+        return vfptrs[this.type].classInfo.getFunctionType(name);
     }
     //クラスなどを実装した場合ここに記述
 }

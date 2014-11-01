@@ -445,7 +445,8 @@ class Parser
             {
                 auto dc = cast(DefineClass)exp;
                 dc.createClassInfo();//とりあえずまだ継承は未実装
-                sv.define(dc.name, ValueType(ObjectType.Class, dc.classInfo));
+                //sv.define(dc.name, ValueType(ObjectType.Class, dc.classInfo));
+                svt.define(dc.name, ValueType(ObjectType.ClassInstance, dc.classInfo.instance));
             }
         }
         foreach(exp; roots)
@@ -460,7 +461,6 @@ class Parser
             {
                 auto dc = cast(DefineClass)exp;
                 auto classInfo = dc.classInfo;
-                svt.define(dc.name, ValueType(ObjectType.ClassInstance, classInfo.instance));
                 foreach(mem; dc.variables)
                 {
                     DefineVariable dv = mem.value;
@@ -586,6 +586,28 @@ class Parser
                     if(op1.type == ObjectType.Function)
                     {
                         return bo.valueType = (cast(FunctionClassInfo)op1.classInfo).retType;
+                    }
+                    BinaryOperator dot = cast(BinaryOperator)bo.OP1;
+                    //bo.OP1(bo.OP1.OP1, bo.OP1.OP2 (hoge.huga))
+                    if(dot && dot.type == TokenType.Dot)
+                    {
+                        dot.OP1.valueType = typeInference(dot.OP1, variable, type);
+                        auto func = cast(Variable)dot.OP2;
+                        if(func)
+                        {
+                            auto vt = dot.OP1.valueType.opDotFunc(func.name);
+                            if(vt.isErrorType)
+                            {
+                                Error(new ParseError("存在しない関数", dot.OP2));
+                            }
+                            dot.valueType = vt;
+                            return bo.valueType = vt;
+                        }
+                        else
+                        {
+                            Error(new ParseError("関数呼び出しには識別子を使う必要があります。", dot.OP1));
+                            return ValueType.errorType;
+                        }
                     }
                     Error(new ParseError("Function!?", bo));
                     return ValueType.errorType;

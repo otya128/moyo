@@ -339,6 +339,7 @@ struct StaticVariable
         if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
         return parent.get(str);
     }
+    ///default value: null
     public ValueType* getptr(mstring str)
     {
         ValueType* mptr;
@@ -352,12 +353,27 @@ struct StaticVariable
             return mptr;
         }
     }
+    ///default value: VariableUndefinedException
     public ValueType get(mstring str)
     {
         ValueType* mptr;
         if((mptr = str in var) is null)
         {
             if(!parent) throw new moyo.interpreter.VariableUndefinedException(str);
+            return parent.get(str);
+        }
+        else
+        {
+            return *mptr;
+        }
+    }
+    ///default value: ValueType.errorType
+    public ValueType tryGet(mstring str)
+    {
+        ValueType* mptr;
+        if((mptr = str in var) is null)
+        {
+            if(!parent) return ValueType.errorType;
             return parent.get(str);
         }
         else
