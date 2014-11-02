@@ -2,6 +2,7 @@
 println(new test())
 
 var tst = new test()
+tst.age=2
 tst.hoge=10
 println(tst.fuga(1))
 tst.hu = new test()

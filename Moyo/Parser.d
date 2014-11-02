@@ -18,7 +18,7 @@ enum Encoding
 }
 bool isOperator(TokenType tt)
 {
-    return !!(tt & 0b10000);
+    return !!(tt & TokenType.OP);
 }
 bool isUnaryOperator(TokenType tt)
 {
@@ -1253,9 +1253,9 @@ class Parser
             } 
             else tl.next = t;
             tl = t;
-            t.linepos = linepos - length;
+            t.linepos = linepos - length + 1;
             t.position = position - length + 1;
-            t.length = 1;
+            t.length = length;
             t.type = tt;
             t.constant = constant;
             t.line = line;
@@ -1271,7 +1271,7 @@ class Parser
             else tl.next = t;
             tl = t;
             t.position = position - length + 1;
-            t.length = 1;
+            t.length = length;
             t.linepos = linepos - length;
             t.type = tt;
             t.line = line;
@@ -1287,7 +1287,7 @@ class Parser
             else tl.next = t;
             tl = t;
             t.position = position - length + 1;
-            t.length = 1;
+            t.length = length;
             t.line = line;
             t.linepos = linepos - length;
             t.type = tt;
@@ -1333,11 +1333,13 @@ class Parser
                     if(isLast)break;
                     if(isStartIden(inchar))
                     {
+                        len = 0;
                         ps = ParserStat.Iden;
                         goto case ParserStat.Iden;
                     }
                     if(isDigit(inchar))
                     {
+                        len = 0;
                         ps = ParserStat.Number;
                         goto case ParserStat.Number;
                     }
@@ -1435,6 +1437,12 @@ class Parser
                             break;
                         case '}':
                             AddList(TokenType.BlockEnd);
+                            break;
+                        case '[':
+                            AddList(TokenType.ArrayStart);
+                            break;
+                        case ']':
+                            AddList(TokenType.ArrayEnd);
                             break;
                         case ';':
                             AddList(TokenType.Semicolon);

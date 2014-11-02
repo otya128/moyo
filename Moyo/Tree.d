@@ -36,8 +36,9 @@ enum TokenType
     Semicolon = 0b1001,//;
     Lambda = 0b1010,//=>
     New = 0b1011,
-    Plus=0b10000,
-    OP = 0b10000,
+    ArrayEnd = 0b1100,//]
+    Plus=0b100000,
+    OP = 0b100000,
     Minus=OP|1,
     Mul=OP|2,
     Div=OP|3,
@@ -52,6 +53,7 @@ enum TokenType
     LessOrEqual,
     GreaterOrEqual,
     Dot,//.
+    ArrayStart//[
 }
 bool[TokenType.max + 1] isUOP = 
 [
