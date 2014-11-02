@@ -12,3 +12,14 @@ MObject print(ArgsType args)
     stdout.flush();
     return Void;
 }
+
+MObject printlnFunc = MObject(new NativeFunction(&println, "println"));
+MObject println(ArgsType args)
+{
+    foreach(ref MObject i; args)
+    {
+        write(i);
+    }
+    writeln();
+    return Void;
+}

@@ -1,14 +1,14 @@
 
-print(new test())
+println(new test())
 
 var tst = new test()
-print(tst.fuga())
 tst.hoge=10
+println(tst.fuga(1))
 tst.hu = new test()
-print(tst.hoge)
+println(tst.hoge)
 tst.hu.hoge=2
-print(tst.hu.hoge)
-print(1.ToString())
+println(tst.hu.hoge)
+println(1.ToString())
 class test
 {
     int hoge
@@ -16,7 +16,7 @@ class test
 	protected int nearby
     private string fuga(int far)
     {
-        return far.ToString()
+        return far + hoge
     }
 	test hu
 }

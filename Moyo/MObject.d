@@ -29,6 +29,7 @@ union MObjectUnion
     ulong UInt64;
     mstring String;
     Function Func;
+    MFunction MFunc;
     MClass Class;
     MClassInstance Object;
     MObject[] Array;
@@ -56,7 +57,7 @@ class MObject__vfptr
     operator opLessOrEqual = &NoImplFunctionA2;
     operator opGreaterOrEqual = &NoImplFunctionA2;
     bool function(ref MObject) opBool;
-    MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall;
+    MObject function(ref MObject op1, ArgsType args, ref Variables parent) opCall;
     ObjectType type;
     BaseClassInfo classInfo;
     protected this(){};
@@ -89,7 +90,7 @@ class MObject__vfptr
         this.opGreaterOrEqual = opGreaterOrEqual;
     }
     
-    public this(mstring function(ref MObject) to_s, MObject function(ref MObject op1, ArgsType args, Interpreter parent) opCall)
+    public this(mstring function(ref MObject) to_s, MObject function(ref MObject op1, ArgsType args, ref Variables parent) opCall)
     {
         this.type = ObjectType.Function;
         this.classInfo = new ObjectClassInfo();
@@ -205,7 +206,7 @@ struct MObject
     {
         return vfptrs[type].opEquals(this,op1);
     }
-    public MObject call(ArgsType args, Interpreter parent)
+    public MObject call(ArgsType args, ref Variables parent)
     {
         return vfptrs[type].opCall(this, args, parent);
     }
@@ -338,9 +339,9 @@ import std.container;
 abstract class Function
 {
     @property mstring name();
-    MObject opCall(ArgsType args, Interpreter parent);
+    MObject opCall(ArgsType args, ref Variables parent);
     mstring toMString();
-    static MObject opCallFunction(ref MObject op1, ArgsType args, Interpreter parent)
+    static MObject opCallFunction(ref MObject op1, ArgsType args, ref Variables parent)
     {
         return op1.value.Func(args, parent);
     }
@@ -364,7 +365,7 @@ class NativeFunction : Function
     {
         return _name;
     }
-    override MObject opCall(ArgsType args, Interpreter parent)
+    override MObject opCall(ArgsType args, ref Variables parent)
     {
         return func(args);
     }
@@ -391,9 +392,25 @@ class MFunction : Function
     {
         return tom ? tom : tom = ("function: " ~ tree.name);//記録しておく
     }
-    override MObject opCall(ArgsType args, Interpreter parent)
+    override MObject opCall(ArgsType args, ref Variables parent)
     {
-        auto intp = new Interpreter(parent.variable.global);
+        auto intp = new Interpreter(parent.global);
+        MObject ret;
+        if(args.length != tree.args.length)
+        {
+            throw new RuntimeException("argument: " ~ toMString);
+        }
+        for(int i = 0;i < args.length;i++)
+        {
+            intp.variable.define(tree.args[i].name, args[i]);
+        }
+        intp.runStatement(this.tree.statement, ret);
+        return ret;
+    }
+    ///動的スコープで呼び出しします。
+    MObject opDynamicCall(ArgsType args, ref Variables parent)
+    {
+        auto intp = new Interpreter(&parent);
         MObject ret;
         if(args.length != tree.args.length)
         {
@@ -609,7 +626,7 @@ class MInstanceInfo : BaseClassInfo
     }
     override ValueType getFunctionType(mstring name)
     {
-        return functionsType.get(name);
+        return functionsType.tryGet(name);
     }
     override MObject getFunction(mstring name, ref MObject v)
     {

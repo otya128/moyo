@@ -138,6 +138,7 @@ struct Variables
     void initGlobal()
     {
         var["print"] = moyo.library.printFunc;
+        var["println"] = moyo.library.printlnFunc;
         var["null"] = MObject();
         var["true"] = MObject(true);
         var["false"] = MObject(false);
@@ -325,15 +326,20 @@ class Interpreter
                         }
                         FunctionArgs FA = cast(FunctionArgs)bo.OP2;
                         ArgsType args;
-                        if(bo.OP1.Type == NodeType.BinaryOperator && (cast(BinaryOperator)bo.OP1).type == TokenType.Dot)
-                        {
-                            args.insertBack(thisptr);
-                        }
                         foreach(tr; FA.args)
                         {
                             args.insertBack(Eval(tr));
                         }
-                        return op1.call(args, this);
+                        //最後の引数にした
+                        if(bo.OP1.Type == NodeType.BinaryOperator && (cast(BinaryOperator)bo.OP1).type == TokenType.Dot)
+                        {
+                            if(thisptr.Type == ObjectType.ClassInstance)
+                            {
+                                return op1.value.MFunc.opDynamicCall(args, thisptr.value.Object.members);
+                            }
+                            args.insertBack(thisptr);
+                        }
+                        return op1.call(args, this.variable);
                     default:
                 }
                 MObject op1 = Eval(bo.OP1);

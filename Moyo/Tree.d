@@ -398,6 +398,7 @@ struct StaticVariable
     void initGlobal()
     {
         var["print"] = ValueType(ObjectType.Function, new FunctionClassInfo());
+        var["println"] = ValueType(ObjectType.Function, new FunctionClassInfo());
         var["null"] = ValueType();
         var["true"] = ValueType(ObjectType.Boolean);
         var["false"] = ValueType(ObjectType.Boolean);
