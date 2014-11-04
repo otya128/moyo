@@ -201,7 +201,6 @@
   <File path="library.d" />
   <File path="main.d" />
   <File path="MObject.d" />
-  <File path="net.d.bak" />
   <File path="Parser.d" />
   <File path="stdio.d" />
   <File path="Tree.d" />
