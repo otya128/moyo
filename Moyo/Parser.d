@@ -441,7 +441,7 @@ class Parser
         global.global = &global;
         foreach(exp; roots)
         {
-            if(exp.Type == NodeType.DefineClass)
+            if(exp && exp.Type == NodeType.DefineClass)
             {
                 auto dc = cast(DefineClass)exp;
                 dc.createClassInfo();//とりあえずまだ継承は未実装
@@ -451,7 +451,7 @@ class Parser
         }
         foreach(exp; roots)
         {
-            if(exp.Type == NodeType.DefineFunction)
+            if(exp)if(exp.Type == NodeType.DefineFunction)
             {
                 auto func = cast(DefineFunction)exp;
                 typeInference(func, sv, svt);
@@ -481,7 +481,7 @@ class Parser
         }
         foreach(exp; roots)
         {
-            typeInference(exp, sv, svt);
+            if(exp)typeInference(exp, sv, svt);
         }
         writeln("===TypeInference===");
         foreach(exp; roots)
@@ -732,6 +732,14 @@ class Parser
                         break;
                     case Reserved.Class:
                         nodes.insertBack(parseDefileClass(tl));
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
+                        writeln(tl.type);
                         continue;
                     default:
                 }
@@ -814,6 +822,11 @@ class Parser
                         continue;
                 }
             }
+            if(tl.type == TokenType.BlockEnd)
+            {
+                tl = tl.next;
+                break;
+            }
             tl = tl.next;
         }
         return dc;
@@ -885,7 +898,7 @@ class Parser
             return new ExpressionStatement(parseExpression(tl), tl);
         }
         tl = tl.next;
-        Error(new ParseError("Invalid Statement", tl));
+        Error(new ParseError("Invalid Statement" ~ tl.type.to!string, tl));
         return null;
     }
     Statements parseStatements(ref TokenList tl)
@@ -1020,6 +1033,19 @@ class Parser
         }
         return tree;
     }
+    bool isExpression(TokenList tl)
+    {
+        switch(tl.type)
+        {
+            case TokenType.String:
+            case TokenType.Number:
+            case TokenType.LeftParenthesis:
+            case TokenType.Iden:
+                return true;
+            default:
+                return false;
+        }
+    }
     //lambda
     Expression nonOpExpression(ref TokenList tl, Expression op1)
     {
@@ -1028,17 +1054,25 @@ class Parser
     Expression parseExpression(ref TokenList tl)
     {
         Expression tree;
+        Expression op1;
         if(tl.type.isUnaryOperator || (tl.reserved == Reserved.New))
         {
             if(tl.reserved == Reserved.New)
                 tl.type = TokenType.New;
             auto type = tl;
             tl = tl.next;
-            return new UnaryOperator(parseExpression(tl), type.type, type);
+            
+            op1 = new UnaryOperator(parseExpression(tl), type.type, type);
+            //tl = tl.next;
+            
+            //return new UnaryOperator(parseExpression(tl), type.type, type);
         }
-        Expression op1 = expression(tl);
-        if(tl.isEnd) return op1;
-        tl = tl.next;
+        else
+        {
+            op1 = expression(tl);
+            if(tl.isEnd) return op1;
+            tl = tl.next;
+        }
         if(tl.isEnd) return op1;
         if(!tl.type.isOperator())
         {
@@ -1125,6 +1159,7 @@ class Parser
         auto bino = bo;
         auto op = tl.type;
         tl = tl.next;
+        Expression op1;
         if(tl.type.isUnaryOperator || (tl.reserved == Reserved.New))
         {
             if(tl.reserved == Reserved.New)
@@ -1132,9 +1167,13 @@ class Parser
             auto type = tl;
             tl = tl.next;
             (cast(BinaryOperator)tr).OP2 = new UnaryOperator(parseExpression(tl), type.type, type);
+            //op1 = (cast(BinaryOperator)tr).OP2;
             return;
         }
-        Expression op1 = expression(tl);
+        else
+        {
+            op1 = expression(tl);
+        }
         if(tl.isEnd) return;
         tl = tl.next;
         if(tl.isEnd)

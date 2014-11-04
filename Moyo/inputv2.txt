@@ -2,7 +2,6 @@
 println(new test())
 
 var tst = new test()
-tst.age=2
 tst.hoge=10
 println(tst.fuga(1))
 tst.hu = new test()
@@ -10,6 +9,9 @@ println(tst.hoge)
 tst.hu.hoge=2
 println(tst.hu.hoge)
 println(1.ToString())
+var hugea =1
+println(fuga(1))
+println( new Person().hoge(1))
 class test
 {
     int hoge
@@ -20,4 +22,13 @@ class test
         return far + hoge
     }
 	test hu
+}
+class Person
+{
+    string hoge(int far)
+    {
+        return "A"
+    }
+    int age
+    string name
 }
